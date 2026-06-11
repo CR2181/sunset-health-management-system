@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>高标准养老院智慧管理服务系统</title>
+    <link rel="stylesheet" href="./styles.css?v=ai-camera-20260609" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="主导航">
+        <div class="brand">
+          <div class="brand-mark">颐</div>
+          <div>
+            <strong>颐安智护</strong>
+            <span>智慧养老运营中枢</span>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <button class="nav-item active" data-view="overview" type="button">
+            <i data-lucide="layout-dashboard"></i><span>运营总览</span>
+          </button>
+          <button class="nav-item" data-view="care" type="button">
+            <i data-lucide="clipboard-check"></i><span>照护闭环</span>
+          </button>
+          <button class="nav-item" data-view="safety" type="button">
+            <i data-lucide="shield-alert"></i><span>安全预警</span>
+          </button>
+          <button class="nav-item" data-view="ai-camera" type="button">
+            <i data-lucide="scan-eye"></i><span>AI摄像分析</span>
+          </button>
+          <button class="nav-item" data-view="family" type="button">
+            <i data-lucide="messages-square"></i><span>家属透明</span>
+          </button>
+          <button class="nav-item" data-view="standard" type="button">
+            <i data-lucide="badge-check"></i><span>高标评定</span>
+          </button>
+        </nav>
+
+        <section class="sidebar-status" aria-label="系统状态">
+          <div>
+            <span>关键设备在线</span>
+            <strong>99.3%</strong>
+          </div>
+          <div>
+            <span>AI摄像在线</span>
+            <strong>97.8%</strong>
+          </div>
+          <div>
+            <span>年度可用性</span>
+            <strong>99.91%</strong>
+          </div>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">2026-06-09 10:20 · 上海颐安护理院</p>
+            <h1>高标准养老院智慧管理服务系统</h1>
+          </div>
+          <div class="top-actions">
+            <div class="user-status" id="userStatus" aria-live="polite">
+              <i data-lucide="user-round"></i>
+              <span>未登录</span>
+            </div>
+            <button class="ghost-button" id="loginEntry" type="button">
+              <i data-lucide="log-in"></i><span>登录</span>
+            </button>
+            <button class="ghost-button" id="registerEntry" type="button">
+              <i data-lucide="user-plus"></i><span>注册</span>
+            </button>
+            <button class="icon-button" type="button" aria-label="搜索">
+              <i data-lucide="search"></i>
+            </button>
+            <button class="icon-button alert" type="button" aria-label="紧急呼救">
+              <i data-lucide="siren"></i>
+            </button>
+            <button class="primary-action" type="button">
+              <i data-lucide="plus"></i><span>新增评估</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="summary-band" aria-label="关键指标">
+          <article class="metric-block">
+            <span>入住率</span>
+            <strong>92.6%</strong>
+            <small>较上月 +3.2%</small>
+          </article>
+          <article class="metric-block">
+            <span>照护按时率</span>
+            <strong>98.4%</strong>
+            <small>今日 1,248 项任务</small>
+          </article>
+          <article class="metric-block urgent">
+            <span>告警 P95 响应</span>
+            <strong>42 秒</strong>
+            <small>高标要求 ≤ 60 秒</small>
+          </article>
+          <article class="metric-block">
+            <span>AI行为识别准确率</span>
+            <strong>96.8%</strong>
+            <small>误报率 3.2%</small>
+          </article>
+        </section>
+
+        <section class="view active" id="overview" aria-label="运营总览">
+          <div class="grid-two">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>今日运营态势</h2>
+                  <p>入住、照护、费用、设备和 AI 风险同步监控</p>
+                </div>
+                <button class="ghost-button" type="button"><i data-lucide="download"></i>导出</button>
+              </div>
+              <div class="ops-map" aria-label="楼层运行热区">
+                <div class="floor normal"><span>1F 门诊康复</span><strong>平稳</strong></div>
+                <div class="floor warn"><span>2F 失能照护</span><strong>2 个待升级任务</strong></div>
+                <div class="floor normal"><span>3F 自理公寓</span><strong>活动中</strong></div>
+                <div class="floor risk"><span>4F 认知照护</span><strong>越界风险关注</strong></div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>重点老人风险</h2>
+                  <p>按能力评估、实时设备和 AI 视觉数据综合排序</p>
+                </div>
+                <button class="icon-button" type="button" aria-label="筛选"><i data-lucide="sliders-horizontal"></i></button>
+              </div>
+              <div class="resident-list" id="residentList"></div>
+            </section>
+          </div>
+
+          <section class="panel full">
+            <div class="panel-head">
+              <div>
+                <h2>接口与硬件联动</h2>
+                <p>HIS、医保、长护险、门禁、穿戴、床垫与 AI 摄像数据自动同步</p>
+              </div>
+              <span class="badge success">全部可用</span>
+            </div>
+            <div class="integration-row" id="integrationRow"></div>
+          </section>
+        </section>
+
+        <section class="view" id="care" aria-label="照护闭环">
+          <div class="grid-two">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>照护任务队列</h2>
+                  <p>从个性化照护方案自动派发</p>
+                </div>
+                <button class="ghost-button" type="button"><i data-lucide="refresh-cw"></i>刷新</button>
+              </div>
+              <div class="task-list" id="taskList"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>入住评估摘要</h2>
+                  <p>ADL、MMSE、慢病风险统一归档</p>
+                </div>
+                <span class="badge info">自动生成方案</span>
+              </div>
+              <div class="assessment">
+                <div class="score"><span>ADL</span><strong>45</strong><small>中度依赖</small></div>
+                <div class="score"><span>MMSE</span><strong>18</strong><small>轻中度认知风险</small></div>
+                <div class="score"><span>慢病</span><strong>高</strong><small>高血压 + 糖尿病</small></div>
+              </div>
+              <div class="care-plan">
+                <h3>个性化照护方案</h3>
+                <ul>
+                  <li>每日 4 次体征监测，异常自动通知医生与家属。</li>
+                  <li>夜间 2 小时翻身提醒，智能床垫同步离床状态。</li>
+                  <li>低糖低钠饮食，餐后血糖纳入慢病趋势。</li>
+                </ul>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="safety" aria-label="安全预警">
+          <div class="grid-two">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>实时告警</h2>
+                  <p>位置、响应、处置过程全留痕</p>
+                </div>
+                <span class="badge danger">3 个待处理</span>
+              </div>
+              <div class="alert-feed" id="alertFeed"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>安全覆盖标准</h2>
+                  <p>全域呼救、公共区域监控、隐私保护和 AI 预警联动</p>
+                </div>
+              </div>
+              <div class="coverage-grid">
+                <div><i data-lucide="map-pin"></i><strong>≤ 5 米</strong><span>定位误差</span></div>
+                <div><i data-lucide="timer"></i><strong>42 秒</strong><span>P95 响应</span></div>
+                <div><i data-lucide="camera"></i><strong>0</strong><span>私密区拍摄点</span></div>
+                <div><i data-lucide="shield-check"></i><strong>96.2%</strong><span>预警准确率</span></div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="ai-camera" aria-label="视频AI中枢">
+          <section class="panel full">
+            <div class="panel-head">
+              <div>
+                <h2>实时视频监控</h2>
+                <p>多路 RTSP 统一接入，服务端转 HLS/WebRTC 后进入 1/4/9 宫格监控</p>
+              </div>
+              <div class="segmented" aria-label="宫格模式">
+                <button class="segment" data-grid-mode="1" type="button">1</button>
+                <button class="segment active" data-grid-mode="4" type="button">4</button>
+                <button class="segment" data-grid-mode="9" type="button">9</button>
+              </div>
+            </div>
+            <div class="video-wall mode-4" id="videoWall"></div>
+          </section>
+
+          <div class="grid-two ai-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>AI 行为识别</h2>
+                  <p>兼容 YOLO v8-v12 模型版本，识别跌倒、离床、徘徊、越界、聚集等关键行为</p>
+                </div>
+                <span class="badge success">推理服务健康</span>
+              </div>
+              <div class="model-stack" id="modelStack"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>LLM 健康分析</h2>
+                  <p>融合体征、照护、用药、活动和 AI 行为事件，输出健康状态评估建议</p>
+                </div>
+                <button class="ghost-button" type="button"><i data-lucide="sparkles"></i>生成建议</button>
+              </div>
+              <div class="llm-card" id="llmHealthCard"></div>
+            </section>
+          </div>
+
+          <div class="grid-two ai-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>BoTSORT 目标跟踪</h2>
+                  <p>对公共区域人员、康复辅助动物和院区宠物做匿名目标编号、轨迹与行为记录</p>
+                </div>
+                <span class="badge info">ID 稳定跟踪</span>
+              </div>
+              <div class="tracking-list" id="trackingList"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>多用户权限管理</h2>
+                  <p>管理员、普通用户角色隔离；视频、健康、账单、审计数据按权限展示</p>
+                </div>
+                <div class="segmented" aria-label="角色切换">
+                  <button class="segment active" data-role="admin" type="button">管理员</button>
+                  <button class="segment" data-role="user" type="button">普通用户</button>
+                </div>
+              </div>
+              <div class="permission-list" id="permissionList"></div>
+            </section>
+          </div>
+
+          <section class="panel full">
+            <div class="panel-head">
+              <div>
+                <h2>数据可视化分析</h2>
+                <p>行为分布、时间统计、摄像头在线率与模型延迟用于质控和排班优化</p>
+              </div>
+              <span class="badge success">自动刷新 30 秒</span>
+            </div>
+            <div class="analytics-grid">
+              <div class="chart-card">
+                <strong>行为分布</strong>
+                <div class="bar-chart" id="behaviorChart"></div>
+              </div>
+              <div class="chart-card">
+                <strong>时段事件统计</strong>
+                <div class="line-chart" id="timeChart"></div>
+              </div>
+              <div class="chart-card">
+                <strong>稳定性护栏</strong>
+                <div class="stability-list" id="stabilityList"></div>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="family" aria-label="家属透明">
+          <div class="grid-two">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>家属移动端看板</h2>
+                  <p>照护记录、健康指标、费用明细开放可查</p>
+                </div>
+                <button class="ghost-button" type="button"><i data-lucide="send"></i>发送日报</button>
+              </div>
+              <div class="phone-preview">
+                <div class="phone-top"></div>
+                <div class="phone-title">李桂英 · 今日照护</div>
+                <div class="phone-line"><span>体征</span><strong>血压 128/76</strong></div>
+                <div class="phone-line"><span>用药</span><strong>已完成 4/4</strong></div>
+                <div class="phone-line"><span>活动</span><strong>书画课 45 分钟</strong></div>
+                <div class="phone-line"><span>安全</span><strong>AI 巡检正常</strong></div>
+                <button class="phone-button" type="button">预约视频探视</button>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>服务需求与评价</h2>
+                  <p>家属反馈进入工单闭环</p>
+                </div>
+              </div>
+              <div class="feedback-list" id="feedbackList"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="standard" aria-label="高标评定">
+          <section class="panel full">
+            <div class="panel-head">
+              <div>
+                <h2>高标准评定矩阵</h2>
+                <p>合规、照护、安全、互联、稳定、透明化逐项验收</p>
+              </div>
+              <span class="badge success">模拟评分 94/100</span>
+            </div>
+            <div class="standard-table" id="standardTable"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div class="auth-modal" id="authModal" aria-hidden="true">
+      <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <button class="icon-button auth-close" id="authClose" type="button" aria-label="关闭">
+          <i data-lucide="x"></i>
+        </button>
+        <div class="auth-head">
+          <span class="badge info" id="authModeBadge">登录</span>
+          <h2 id="authTitle">登录智慧养老系统</h2>
+          <p id="authHint">管理员可查看全部公共视频和审计数据，普通用户只查看授权范围。</p>
+        </div>
+        <form class="auth-form" id="authForm">
+          <label>
+            <span>邮箱</span>
+            <input id="authEmail" name="email" type="email" autocomplete="email" placeholder="name@example.com" required />
+          </label>
+          <label>
+            <span>密码</span>
+            <input id="authPassword" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required minlength="6" />
+          </label>
+          <p class="auth-message" id="authMessage"></p>
+          <button class="primary-action auth-submit" type="submit">
+            <i data-lucide="shield-check"></i><span id="authSubmitText">登录</span>
+          </button>
+        </form>
+        <div class="auth-demo">
+          <strong>演示账号</strong>
+          <span>管理员：admin@yian.local / admin123</span>
+          <span>普通用户：注册后自动成为普通用户</span>
+        </div>
+      </div>
+    </div>
+
+    <script src="./app.js?v=ai-camera-20260609"></script>
+  </body>
+</html>
