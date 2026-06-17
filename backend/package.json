@@ -1,0 +1,40 @@
+{
+  "name": "sunset-health-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NestJS backend for the Sunset Health Management System.",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "start:dev": "nest start --watch",
+    "service:start": "powershell -ExecutionPolicy Bypass -File ./scripts/start-service.ps1",
+    "service:stop": "powershell -ExecutionPolicy Bypass -File ./scripts/stop-service.ps1",
+    "db:start": "powershell -ExecutionPolicy Bypass -File ./scripts/start-db.ps1",
+    "db:stop": "powershell -ExecutionPolicy Bypass -File ./scripts/stop-db.ps1",
+    "lint": "tsc --noEmit",
+    "smoke": "powershell -ExecutionPolicy Bypass -File ./scripts/smoke-test.ps1"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.1.6",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/platform-express": "^11.1.6",
+    "@nestjs/serve-static": "^5.0.3",
+    "@nestjs/typeorm": "^11.0.0",
+    "bcryptjs": "^3.0.2",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "mysql2": "^3.14.3",
+    "pg": "^8.16.3",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "typeorm": "^0.3.25"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.10",
+    "@types/node": "^24.0.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}

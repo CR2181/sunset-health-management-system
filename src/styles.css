@@ -1703,6 +1703,98 @@ h3 {
   }
 }
 
+.item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.mini-action {
+  min-height: 30px;
+  border: 1px solid rgba(0, 122, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(0, 122, 255, 0.08);
+  color: #0059c8;
+  padding: 0 10px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background var(--motion), border-color var(--motion), transform var(--motion);
+}
+
+.mini-action:hover {
+  background: rgba(0, 122, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+.mini-action:disabled {
+  cursor: wait;
+  opacity: 0.55;
+  transform: none;
+}
+
+.mini-action.danger {
+  border-color: rgba(215, 0, 21, 0.18);
+  background: rgba(255, 241, 240, 0.94);
+  color: var(--red);
+}
+
+.pilot-message {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 122, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(232, 242, 255, 0.92);
+  color: #064f9f;
+  box-shadow: var(--shadow-soft);
+}
+
+.pilot-message.success {
+  border-color: rgba(36, 138, 61, 0.18);
+  background: rgba(237, 249, 240, 0.94);
+  color: var(--green);
+}
+
+.pilot-message.warning {
+  border-color: rgba(179, 92, 0, 0.18);
+  background: rgba(255, 247, 232, 0.94);
+  color: var(--amber);
+}
+
+.pilot-message.error {
+  border-color: rgba(215, 0, 21, 0.18);
+  background: rgba(255, 241, 240, 0.94);
+  color: var(--red);
+}
+
+.device-status-line {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pilot-action-panel {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid rgba(0, 121, 107, 0.16);
+  border-radius: 8px;
+  background: rgba(242, 247, 247, 0.9);
+}
+
+.pilot-action-panel strong,
+.pilot-action-panel span {
+  display: block;
+}
+
+.pilot-action-panel span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 @media (max-width: 1100px) {
   .app-shell {
     grid-template-columns: 88px minmax(0, 1fr);

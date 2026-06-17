@@ -28,3 +28,47 @@ python -m http.server 8080
 ```
 
 然后访问 `http://127.0.0.1:8080`。
+
+## 后端服务
+
+项目已新增 NestJS 后端，位于 `backend/` 目录，支持 PostgreSQL 和 MySQL。
+
+```powershell
+cd backend
+npm install
+Copy-Item .env.example .env
+npm run start:dev
+```
+
+默认后端地址为 `http://127.0.0.1:3000`，API 前缀为 `/api`。前端会优先读取后端数据；如果后端未启动，会回退到本地演示数据。
+
+默认管理员账号：
+
+```text
+admin@yian.local
+admin123
+```
+
+## 本机服务启动
+
+这台电脑已安装项目专用的便携版 MariaDB，数据目录在 `backend/.runtime/`，不需要管理员权限。
+
+启动完整服务：
+
+```powershell
+cd backend
+npm run service:start
+```
+
+停止完整服务：
+
+```powershell
+cd backend
+npm run service:stop
+```
+
+启动后访问：
+
+```text
+http://127.0.0.1:3000
+```

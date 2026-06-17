@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sunset-health-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sunset_health
+    ports:
+      - "5432:5432"
+    volumes:
+      - sunset_health_pgdata:/var/lib/postgresql/data
+
+  mysql:
+    image: mysql:8.4
+    container_name: sunset-health-mysql
+    profiles:
+      - mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: sunset_health
+      MYSQL_USER: sunset
+      MYSQL_PASSWORD: sunset
+    ports:
+      - "3306:3306"
+    volumes:
+      - sunset_health_mysqldata:/var/lib/mysql
+
+volumes:
+  sunset_health_pgdata:
+  sunset_health_mysqldata:

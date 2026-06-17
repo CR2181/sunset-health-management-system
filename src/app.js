@@ -7,17 +7,19 @@ const appState = {
 
 const AUTH_USERS_KEY = "yian-auth-users";
 const AUTH_SESSION_KEY = "yian-auth-session";
+const AUTH_TOKEN_KEY = "yian-auth-token";
+const API_BASE = window.APP_API_BASE || (["8080", "5500"].includes(window.location.port) ? "http://127.0.0.1:3000" : "");
 const builtinUsers = [
   { email: "admin@yian.local", password: "admin123", role: "admin" }
 ];
 
-const residents = [
+let residents = [
   { name: "李桂英", age: 82, room: "4F-护理区 412", risk: "认知越界", detail: "MMSE 18 · 夜间离床 2 次 · AI徘徊预警 1 次" },
   { name: "张守仁", age: 79, room: "2F-失能照护 208", risk: "跌倒高危", detail: "ADL 42 · 智能床垫离床告警 · AI姿态异常" },
   { name: "陈玉兰", age: 86, room: "3F-自理公寓 315", risk: "慢病关注", detail: "血糖餐后偏高 · 低糖餐单 · 活动量下降" }
 ];
 
-const integrations = [
+let integrations = [
   { icon: "hospital", name: "医院 HIS", state: "双向转诊在线" },
   { icon: "credit-card", name: "医保/长护险", state: "结算接口正常" },
   { icon: "watch", name: "定位手环", state: "286 台在线" },
@@ -25,20 +27,20 @@ const integrations = [
   { icon: "cctv", name: "AI视频中枢", state: "64 路接入" }
 ];
 
-const tasks = [
+let tasks = [
   { title: "李桂英 · 17:30 晚间用药核对", meta: "护理员 王敏 · 智能药箱已开盒", state: "进行中", tone: "doing" },
   { title: "张守仁 · 18:00 翻身与皮肤检查", meta: "2F-208 · 超时 6 分钟已升级", state: "超时", tone: "late" },
   { title: "陈玉兰 · 餐后血糖复测", meta: "血糖仪自动同步 · 家属可见", state: "已完成", tone: "done" },
   { title: "康复区 · 下肢训练 20 分钟", meta: "术后康复计划第 12 天", state: "已完成", tone: "done" }
 ];
 
-const alerts = [
+let alerts = [
   { title: "4F 认知照护区越界风险", meta: "李桂英距离安全门 3.2 米 · 已通知责任护理员", level: "high", state: "23 秒" },
   { title: "2F-208 智能床垫离床异常", meta: "张守仁夜间跌倒高危 · AI摄像未覆盖卧室私密区", level: "high", state: "41 秒" },
   { title: "厨房燃气传感器波动", meta: "已联动后勤巡检 · 暂未达到消防阈值", level: "medium", state: "待复核" }
 ];
 
-const rtspStreams = [
+let rtspStreams = [
   { name: "4F 认知照护走廊", stream: "rtsp://camera.local/4f-corridor-01", status: "online", fps: 25, delay: 180, behavior: "越界关注", model: "YOLOv12" },
   { name: "2F 失能公共区", stream: "rtsp://camera.local/2f-care-03", status: "online", fps: 24, delay: 210, behavior: "跌倒识别", model: "YOLOv11" },
   { name: "1F 康复训练区", stream: "rtsp://camera.local/1f-rehab-02", status: "online", fps: 25, delay: 165, behavior: "动作评估", model: "YOLOv10" },
@@ -49,6 +51,9 @@ const rtspStreams = [
   { name: "院区主入口", stream: "rtsp://camera.local/main-gate-01", status: "online", fps: 22, delay: 260, behavior: "陌生人闯入", model: "YOLOv10" },
   { name: "公共休闲区", stream: "rtsp://camera.local/lounge-01", status: "offline", fps: 0, delay: 0, behavior: "信号中断", model: "备用通道" }
 ];
+
+let devices = [];
+let aiEvents = [];
 
 const modelStack = [
   { version: "YOLOv12", scene: "跌倒、越界、异常姿态", latency: "38ms", status: "主模型", score: 96 },
@@ -116,13 +121,13 @@ const stabilityItems = [
   { name: "数据留痕", value: "事件、响应、复核全链路审计" }
 ];
 
-const feedback = [
+let feedback = [
   { title: "家属提交：周三视频探视", meta: "李桂英女儿 · 已分配客服 14:20 回复", state: "处理中" },
   { title: "账单疑问：康复服务明细", meta: "张守仁家属 · 财务已补充分项说明", state: "已回复" },
   { title: "服务评价：助浴照护满意", meta: "陈玉兰家属 · 5 星评价进入绩效", state: "已归档" }
 ];
 
-const standards = [
+let standards = [
   { name: "合规性", desc: "分级授权、隐私加密、审计日志、监管平台对接", score: 96 },
   { name: "照护适配", desc: "覆盖自理、半失能、失能、失智，评估工具统一", score: 94 },
   { name: "安全响应", desc: "告警无盲区，P95 响应 42 秒，定位误差 ≤ 5 米", score: 93 },
@@ -142,6 +147,62 @@ function escapeHtml(value) {
 
 function safeClass(value, fallback = "") {
   return /^[a-z0-9_-]+$/i.test(String(value)) ? value : fallback;
+}
+
+async function apiRequest(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  if (options.body && !(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const response = await fetch(`${API_BASE}/api${path}`, {
+    ...options,
+    headers
+  });
+
+  if (!response.ok) {
+    let message = `API request failed: ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      message = errorBody.message || message;
+    } catch {
+      // Keep the status-based message when the body is not JSON.
+    }
+    throw new Error(Array.isArray(message) ? message.join("; ") : message);
+  }
+
+  if (response.status === 204) return null;
+  const body = await response.json();
+  return body && body.success === true && Object.prototype.hasOwnProperty.call(body, "data") ? body.data : body;
+}
+
+async function loadDashboardData() {
+  try {
+    const data = await apiRequest("/dashboard/data");
+    if (Array.isArray(data.residents)) residents = data.residents;
+    if (Array.isArray(data.integrations)) integrations = data.integrations;
+    if (Array.isArray(data.tasks)) tasks = data.tasks;
+    if (Array.isArray(data.alerts)) alerts = data.alerts;
+    if (Array.isArray(data.rtspStreams)) rtspStreams = data.rtspStreams;
+    if (Array.isArray(data.devices)) devices = data.devices;
+    if (Array.isArray(data.feedback)) feedback = data.feedback;
+    if (Array.isArray(data.standards)) standards = data.standards;
+  } catch (error) {
+    console.warn("Backend API unavailable, using local demo data.", error);
+  }
+}
+
+async function loadPilotEvents() {
+  try {
+    aiEvents = await apiRequest("/ai-events");
+  } catch (error) {
+    console.warn("AI event list unavailable.", error);
+  }
 }
 
 function renderList(id, items, renderer, emptyText = "暂无数据") {
@@ -238,6 +299,21 @@ function renderTrackingList() {
       <span class="task-state doing">${escapeHtml(item.confidence)}%</span>
     </article>
   `);
+
+  const target = document.getElementById("trackingList");
+  if (!target) return;
+  target.insertAdjacentHTML("afterbegin", `
+    <article class="pilot-action-panel">
+      <div>
+        <strong>AI事件试点闭环</strong>
+        <span>模拟边缘盒子上报事件，再由管理端人工复核。</span>
+      </div>
+      <div class="item-actions">
+        <button class="mini-action" data-pilot-action="ai-create-test" type="button">模拟AI事件</button>
+        <button class="mini-action" data-pilot-action="ai-review-first" type="button">人工复核</button>
+      </div>
+    </article>
+  `);
 }
 
 function renderPermissionList() {
@@ -313,18 +389,26 @@ function closeAuthModal() {
 }
 
 function applySession(user) {
-  appState.currentUser = user ? { email: user.email, role: user.role } : null;
+  appState.currentUser = user ? { id: user.id, email: user.email, role: user.role } : null;
   appState.role = user?.role === "admin" ? "admin" : "user";
   if (user) {
     localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(appState.currentUser));
   } else {
     localStorage.removeItem(AUTH_SESSION_KEY);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
   }
   renderAuthStatus();
   renderPermissionList();
   renderVideoWall();
   updateRoleControls();
   refreshIcons();
+}
+
+function applyAuthResult(result) {
+  if (result?.accessToken) {
+    localStorage.setItem(AUTH_TOKEN_KEY, result.accessToken);
+  }
+  applySession(result?.user || null);
 }
 
 function renderAuthStatus() {
@@ -346,8 +430,15 @@ function renderAuthStatus() {
   registerEntry.style.display = "none";
 }
 
-function restoreSession() {
+async function restoreSession() {
   try {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    if (token) {
+      const result = await apiRequest("/auth/me");
+      applySession(result.user);
+      return;
+    }
+
     const session = JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || "null");
     if (!session?.email) {
       applySession(null);
@@ -361,7 +452,7 @@ function restoreSession() {
   }
 }
 
-function handleAuthSubmit(event) {
+async function handleAuthSubmit(event) {
   event.preventDefault();
   const email = document.getElementById("authEmail")?.value.trim().toLowerCase();
   const password = document.getElementById("authPassword")?.value || "";
@@ -375,6 +466,22 @@ function handleAuthSubmit(event) {
   }
 
   if (appState.authMode === "register") {
+    try {
+      const result = await apiRequest("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ email, password })
+      });
+      applyAuthResult(result);
+      closeAuthModal();
+      return;
+    } catch (error) {
+      if (!String(error.message || "").includes("Failed to fetch")) {
+        setAuthMessage(error.message || "注册失败，请稍后重试。", "error");
+        return;
+      }
+      console.warn("Backend register unavailable, using local demo auth.", error);
+    }
+
     if (findUser(email)) {
       setAuthMessage("该邮箱已注册，请直接登录。", "error");
       return;
@@ -386,6 +493,22 @@ function handleAuthSubmit(event) {
     applySession(user);
     closeAuthModal();
     return;
+  }
+
+  try {
+    const result = await apiRequest("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password })
+    });
+    applyAuthResult(result);
+    closeAuthModal();
+    return;
+  } catch (error) {
+    if (!String(error.message || "").includes("Failed to fetch")) {
+      setAuthMessage(error.message || "登录失败，请检查账号和密码。", "error");
+      return;
+    }
+    console.warn("Backend login unavailable, using local demo auth.", error);
   }
 
   const user = findUser(email);
@@ -442,17 +565,42 @@ function renderBaseLists() {
       <div>
         <div class="item-title">${escapeHtml(item.name)} · ${escapeHtml(item.age)} 岁</div>
         <div class="item-meta">${escapeHtml(item.room)} · ${escapeHtml(item.detail)}</div>
+        <div class="item-meta">${escapeHtml(item.careLevel || "护理等级待补充")} · ${escapeHtml(item.familyContactName || "家属联系人待补充")}</div>
+        ${item.id ? `
+          <div class="item-actions">
+            <button class="mini-action" data-pilot-action="resident-update" data-id="${escapeHtml(item.id)}" type="button">补充档案</button>
+          </div>
+        ` : ""}
       </div>
       <span class="risk-tag">${escapeHtml(item.risk)}</span>
     </article>
   `);
 
-  renderList("integrationRow", integrations, (item) => `
+  const integrationCards = [
+    ...integrations.map((item) => ({ ...item, kind: "integration" })),
+    ...devices.slice(0, 4).map((device) => ({
+      icon: "radio-tower",
+      name: device.name,
+      state: `${device.status || "unknown"} · ${device.location || "未绑定区域"}`,
+      kind: "device",
+      id: device.id,
+      batteryLevel: device.batteryLevel,
+      lastHeartbeatAt: device.lastHeartbeatAt
+    }))
+  ];
+
+  renderList("integrationRow", integrationCards, (item) => `
     <article class="integration-item">
       <i data-lucide="${escapeHtml(item.icon)}"></i>
       <div>
         <strong>${escapeHtml(item.name)}</strong>
         <span>${escapeHtml(item.state)}</span>
+        ${item.kind === "device" ? `
+          <small class="device-status-line">电量 ${escapeHtml(item.batteryLevel ?? "待上报")} · ${escapeHtml(item.lastHeartbeatAt || "暂无心跳")}</small>
+          <div class="item-actions">
+            <button class="mini-action" data-pilot-action="device-heartbeat" data-id="${escapeHtml(item.id)}" type="button">上报心跳</button>
+          </div>
+        ` : ""}
       </div>
     </article>
   `);
@@ -462,6 +610,12 @@ function renderBaseLists() {
       <div>
         <div class="item-title">${escapeHtml(item.title)}</div>
         <div class="item-meta">${escapeHtml(item.meta)}</div>
+        ${item.id ? `
+          <div class="item-actions">
+            <button class="mini-action" data-pilot-action="task-progress" data-id="${escapeHtml(item.id)}" type="button">开始处理</button>
+            <button class="mini-action" data-pilot-action="task-complete" data-id="${escapeHtml(item.id)}" type="button">完成</button>
+          </div>
+        ` : ""}
       </div>
       <span class="task-state ${safeClass(item.tone)}">${escapeHtml(item.state)}</span>
     </article>
@@ -472,6 +626,13 @@ function renderBaseLists() {
       <div>
         <div class="item-title">${escapeHtml(item.title)}</div>
         <div class="item-meta">${escapeHtml(item.meta)}</div>
+        ${item.id ? `
+          <div class="item-actions">
+            <button class="mini-action" data-pilot-action="alert-ack" data-id="${escapeHtml(item.id)}" type="button">确认</button>
+            <button class="mini-action" data-pilot-action="alert-resolve" data-id="${escapeHtml(item.id)}" type="button">解决</button>
+            <button class="mini-action danger" data-pilot-action="alert-false-positive" data-id="${escapeHtml(item.id)}" type="button">误报</button>
+          </div>
+        ` : ""}
       </div>
       <span class="task-state ${item.level === "high" ? "late" : "doing"}">${escapeHtml(item.state)}</span>
     </article>
@@ -499,6 +660,130 @@ function renderBaseLists() {
       <span class="badge success">${escapeHtml(item.score)}/100</span>
     </article>
   `);
+}
+
+function showPilotMessage(message, tone = "info") {
+  const workspace = document.querySelector(".workspace");
+  if (!workspace) return;
+  let target = document.getElementById("pilotMessage");
+  if (!target) {
+    workspace.insertAdjacentHTML("afterbegin", `<div class="pilot-message" id="pilotMessage" role="status"></div>`);
+    target = document.getElementById("pilotMessage");
+  }
+  target.className = `pilot-message ${safeClass(tone, "info")}`;
+  target.textContent = message;
+}
+
+function requireLoginForPilotAction() {
+  if (localStorage.getItem(AUTH_TOKEN_KEY)) {
+    return true;
+  }
+  openAuthModal("login");
+  setAuthMessage("请先用管理员账号登录，再执行试点操作。", "error");
+  return false;
+}
+
+async function refreshPilotData() {
+  await loadDashboardData();
+  await loadPilotEvents();
+  renderBaseLists();
+  renderTrackingList();
+  refreshIcons();
+}
+
+async function handlePilotAction(action, id) {
+  if (!requireLoginForPilotAction()) return;
+
+  const operatorName = appState.currentUser?.email || "试点操作员";
+
+  if (action === "alert-ack") {
+    await apiRequest(`/alerts/${id}/ack`, {
+      method: "PATCH",
+      body: JSON.stringify({ responderName: operatorName })
+    });
+    showPilotMessage("告警已确认，系统已写入审计日志。", "success");
+  }
+
+  if (action === "alert-resolve") {
+    await apiRequest(`/alerts/${id}/resolve`, {
+      method: "PATCH",
+      body: JSON.stringify({ resolutionNote: "管理端确认已处理" })
+    });
+    showPilotMessage("告警已解决，处置结果已留痕。", "success");
+  }
+
+  if (action === "alert-false-positive") {
+    await apiRequest(`/alerts/${id}/false-positive`, {
+      method: "PATCH",
+      body: JSON.stringify({ resolutionNote: "管理端标记为误报" })
+    });
+    showPilotMessage("告警已标记为误报，后续可用于优化AI模型。", "success");
+  }
+
+  if (action === "task-progress" || action === "task-complete") {
+    const status = action === "task-complete" ? "completed" : "in_progress";
+    await apiRequest(`/care-tasks/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, operatorName, note: "管理端试点操作" })
+    });
+    showPilotMessage(status === "completed" ? "护理任务已完成。" : "护理任务已进入处理中。", "success");
+  }
+
+  if (action === "device-heartbeat") {
+    await apiRequest(`/devices/${id}/heartbeat`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "online", batteryLevel: 92 })
+    });
+    showPilotMessage("设备心跳已上报，在线状态已刷新。", "success");
+  }
+
+  if (action === "resident-update") {
+    await apiRequest(`/residents/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        careLevel: "二级护理",
+        familyContactName: "试点家属",
+        familyContactPhone: "13800000000",
+        riskTags: ["跌倒风险", "夜间离床"]
+      })
+    });
+    showPilotMessage("老人档案关键试点字段已补充。", "success");
+  }
+
+  if (action === "ai-create-test") {
+    await apiRequest("/ai-events", {
+      method: "POST",
+      body: JSON.stringify({
+        eventType: "fall_detected",
+        externalEventId: `WEB-${Date.now()}`,
+        cameraCode: "CAM-WEB-001",
+        residentCode: "RES-002",
+        location: "2F 失能公共区",
+        level: "high",
+        eventTime: new Date().toISOString(),
+        modelVersion: "pilot-yolo-adapter",
+        confidence: 0.92,
+        evidence: { source: "admin-web" }
+      })
+    });
+    showPilotMessage("已模拟接收一条 AI 事件，等待人工复核。", "success");
+  }
+
+  if (action === "ai-review-first") {
+    await loadPilotEvents();
+    const event = aiEvents.find((item) => item.status === "pending_review") || aiEvents[0];
+    if (!event?.id) {
+      showPilotMessage("暂无可复核的 AI 事件，请先模拟一条。", "warning");
+      return;
+    }
+    await apiRequest(`/ai-events/${event.id}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "confirmed", reviewedBy: operatorName, reviewNote: "管理端人工复核确认" })
+    });
+    showPilotMessage("AI 事件已人工复核确认。", "success");
+  }
+
+  await refreshPilotData();
 }
 
 function refreshIcons() {
@@ -580,8 +865,26 @@ function bindAuthControls() {
   });
 }
 
-function bootApp() {
+function bindPilotActions() {
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-pilot-action]");
+    if (!button) return;
+
+    button.disabled = true;
+    try {
+      await handlePilotAction(button.dataset.pilotAction, button.dataset.id || "");
+    } catch (error) {
+      console.error("Pilot action failed", error);
+      showPilotMessage(error.message || "操作失败，请检查后端服务和登录状态。", "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
+async function bootApp() {
   try {
+    await loadDashboardData();
     renderBaseLists();
     renderVideoWall();
     renderModelStack();
@@ -595,7 +898,8 @@ function bootApp() {
     bindVideoControls();
     bindRoleControls();
     bindAuthControls();
-    restoreSession();
+    bindPilotActions();
+    await restoreSession();
     updateRoleControls();
     refreshIcons();
   } catch (error) {
