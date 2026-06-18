@@ -8,10 +8,15 @@ import { ApiResponseInterceptor } from "./common/interceptors/api-response.inter
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
+  const corsOrigins = config
+    .get<string>("CORS_ORIGINS", "http://127.0.0.1:5177,http://localhost:5177,http://127.0.0.1:8080,http://localhost:8080")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
   app.setGlobalPrefix("api");
   app.enableCors({
-    origin: true,
+    origin: corsOrigins,
     credentials: true
   });
   app.useGlobalPipes(

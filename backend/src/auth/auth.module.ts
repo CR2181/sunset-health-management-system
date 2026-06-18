@@ -14,12 +14,21 @@ import { User } from "./user.entity";
     TypeOrmModule.forFeature([User]),
     JwtModule.registerAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get<string>("JWT_SECRET", "local-development-secret-change-me"),
-        signOptions: {
-          expiresIn: config.get<string>("JWT_EXPIRES_IN", "8h") as JwtSignOptions["expiresIn"]
+      useFactory: (config: ConfigService) => {
+        const nodeEnv = config.get<string>("NODE_ENV", "development");
+        const secret = config.get<string>("JWT_SECRET") || "";
+
+        if (nodeEnv === "production" && (!secret || secret === "replace-with-a-long-random-secret")) {
+          throw new Error("JWT_SECRET must be configured with a strong production secret.");
         }
-      })
+
+        return {
+          secret: secret || "local-development-secret-change-me",
+          signOptions: {
+            expiresIn: config.get<string>("JWT_EXPIRES_IN", "8h") as JwtSignOptions["expiresIn"]
+          }
+        };
+      }
     })
   ],
   controllers: [AuthController],

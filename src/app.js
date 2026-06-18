@@ -1,8 +1,9 @@
 const appState = {
   gridMode: 4,
-  role: "user",
+  role: "visitor",
   authMode: "login",
-  currentUser: null
+  currentUser: null,
+  router: null
 };
 
 const AUTH_USERS_KEY = "yian-auth-users";
@@ -12,6 +13,11 @@ const API_BASE = window.APP_API_BASE || (["8080", "5500"].includes(window.locati
 const builtinUsers = [
   { email: "admin@yian.local", password: "admin123", role: "admin" }
 ];
+const mockAccounts = window.YianMockAccounts?.demoAccounts || [];
+const rbac = window.YianRBAC;
+const authSession = window.YianAuthSession?.createAuthSessionManager({
+  accounts: mockAccounts
+});
 
 let residents = [
   { name: "李桂英", age: 82, room: "4F-护理区 412", risk: "认知越界", detail: "MMSE 18 · 夜间离床 2 次 · AI徘徊预警 1 次" },
@@ -149,6 +155,133 @@ function safeClass(value, fallback = "") {
   return /^[a-z0-9_-]+$/i.test(String(value)) ? value : fallback;
 }
 
+function setLoginPageMessage(message, tone = "") {
+  const target = document.getElementById("loginPageMessage");
+  if (!target) return;
+  target.textContent = message;
+  target.className = `auth-message ${safeClass(tone)}`;
+}
+
+function renderDemoAccounts() {
+  const target = document.getElementById("demoAccountList");
+  if (!target) return;
+  target.innerHTML = mockAccounts.map((account) => `
+    <button class="demo-account-item" data-demo-email="${escapeHtml(account.email)}" type="button">
+      <span>${escapeHtml(account.roleName)}</span>
+      <strong>${escapeHtml(account.email)}</strong>
+      <small>${escapeHtml(account.password)}</small>
+    </button>
+  `).join("");
+}
+
+function renderAuthorizedMenu() {
+  const nav = document.querySelector(".nav-list");
+  if (!nav || !rbac) return;
+  const menus = rbac.getMenusForUser(appState.currentUser);
+  nav.innerHTML = menus.map((menu) => `
+    <button class="nav-item" data-menu-key="${escapeHtml(menu.key)}" data-path="${escapeHtml(menu.path)}" data-view="${escapeHtml(menu.view)}" data-legacy-view="${escapeHtml(menu.legacyView)}" type="button">
+      <i data-lucide="${escapeHtml(menu.icon)}"></i><span>${escapeHtml(menu.label)}</span>
+    </button>
+  `).join("");
+}
+
+function showLoginPage() {
+  document.getElementById("loginPage")?.classList.remove("hidden");
+  document.querySelector(".app-shell")?.classList.add("hidden");
+  refreshIcons();
+}
+
+function showAppShell() {
+  document.getElementById("loginPage")?.classList.add("hidden");
+  document.querySelector(".app-shell")?.classList.remove("hidden");
+}
+
+function getLegacyView(view) {
+  const route = rbac?.getRouteByKey(view);
+  if (route?.legacyView) return route.legacyView;
+  if (view === "dashboard" || view === "residents") return "overview";
+  if (view === "rehab") return "care";
+  if (view === "alerts") return "safety";
+  if (view === "devices") return "ai-camera";
+  if (view === "reports" || view === "settings" || view === "integrations") return "standard";
+  if (view === "visitor") return "family";
+  return view;
+}
+
+function showProtectedView(view) {
+  showAppShell();
+  const route = rbac?.getRouteByKey(view);
+  const visibleView = route?.legacyView || (document.getElementById(view) ? view : getLegacyView(view));
+  const fallbackRoute = view === "no-permission"
+    ? { key: view, title: "无权限访问", breadcrumb: ["无权限访问"], legacyView: visibleView }
+    : { key: view, title: "页面不存在", breadcrumb: ["页面不存在"], legacyView: visibleView };
+  const menus = rbac?.getMenusForUser(appState.currentUser) || [];
+  const activeMenuKey = rbac?.getActiveMenuKey(route?.path || `/${view}`, menus);
+  document.querySelectorAll(".view").forEach((item) => item.classList.remove("active"));
+  document.getElementById(visibleView)?.classList.add("active");
+  document.querySelectorAll(".nav-item").forEach((item) => {
+    item.classList.toggle("active", Boolean(activeMenuKey) && item.dataset.menuKey === activeMenuKey);
+  });
+  renderRoutePage(route || fallbackRoute);
+  refreshIcons();
+}
+
+function renderRoutePage(route) {
+  const title = document.querySelector(".topbar h1");
+  const eyebrow = document.querySelector(".topbar .eyebrow");
+
+  if (route?.key === "dashboard" && appState.currentUser && window.YianRoleDashboards) {
+    const dashboard = window.YianRoleDashboards.getDashboardForUser(appState.currentUser);
+    if (title) title.textContent = dashboard.title;
+    if (eyebrow) eyebrow.textContent = `${appState.currentUser.displayName || appState.currentUser.email} · ${appState.currentUser.roleName || appState.currentUser.role}`;
+    showPilotMessage(dashboard.summary, "info");
+    return;
+  }
+
+  if (title) title.textContent = route?.title || "模块页面";
+  if (eyebrow) {
+    const breadcrumb = Array.isArray(route?.breadcrumb) ? route.breadcrumb.join(" / ") : "工作台";
+    const userLabel = appState.currentUser?.displayName || appState.currentUser?.email || "未登录";
+    eyebrow.textContent = `${breadcrumb} · ${userLabel}`;
+  }
+
+  if (route?.legacyView === "module-page") {
+    renderModulePage(route);
+  }
+}
+
+function renderModulePage(route) {
+  if (!window.YianModulePages) return;
+  const page = window.YianModulePages.getModulePage(route, appState.currentUser);
+  const breadcrumb = document.getElementById("moduleBreadcrumb");
+  const mode = document.getElementById("moduleModeBadge");
+  const title = document.getElementById("moduleTitle");
+  const description = document.getElementById("moduleDescription");
+  const status = document.getElementById("moduleStatus");
+  const roleWork = document.getElementById("moduleRoleWork");
+
+  if (breadcrumb) breadcrumb.textContent = page.breadcrumb.join(" / ");
+  if (mode) mode.textContent = `${page.pageMode} · ${page.defaultTab}`;
+  if (title) title.textContent = page.title;
+  if (description) description.textContent = page.description;
+  if (status) status.textContent = page.status;
+  if (roleWork) roleWork.textContent = page.roleWork;
+
+  renderList("moduleHighlights", page.highlights, (item) => `
+    <article class="module-chip">
+      <i data-lucide="check-circle-2"></i>
+      <span>${escapeHtml(item)}</span>
+    </article>
+  `);
+
+  renderList("moduleActions", page.actions, (item) => `
+    <article class="module-action-item">
+      <i data-lucide="arrow-right-circle"></i>
+      <span>${escapeHtml(item)}</span>
+    </article>
+  `);
+}
+
 async function apiRequest(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   const token = localStorage.getItem(AUTH_TOKEN_KEY);
@@ -227,7 +360,8 @@ function renderVideoWall() {
   const streams = rtspStreams.slice(0, mode);
   target.innerHTML = streams.map((camera, index) => {
     const statusClass = safeClass(camera.status, "online");
-    const streamText = appState.role === "admin" ? camera.stream : "已按权限隐藏源地址";
+    const canManageDevices = rbac?.hasPermission(appState.currentUser, rbac.PERMISSIONS.deviceManage);
+    const streamText = canManageDevices ? camera.stream : "已按权限隐藏源地址";
     return `
       <article class="video-tile ${statusClass}">
         <div class="video-surface">
@@ -317,7 +451,15 @@ function renderTrackingList() {
 }
 
 function renderPermissionList() {
-  const roleItems = permissions[appState.role] || permissions.user;
+  const roleItems = appState.currentUser && rbac
+    ? rbac.getRolePermissions(appState.currentUser.role).map((permission) => ({
+      name: permission,
+      state: "当前角色已授权",
+      allowed: true
+    }))
+    : [
+      { name: "demo.view", state: "未登录时只能进入登录页", allowed: false }
+    ];
   renderList("permissionList", roleItems, (item) => `
     <article class="permission-item ${item.allowed ? "allowed" : "blocked"}">
       <i data-lucide="${item.allowed ? "check-circle-2" : "lock"}"></i>
@@ -389,14 +531,13 @@ function closeAuthModal() {
 }
 
 function applySession(user) {
-  appState.currentUser = user ? { id: user.id, email: user.email, role: user.role } : null;
-  appState.role = user?.role === "admin" ? "admin" : "user";
-  if (user) {
-    localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(appState.currentUser));
-  } else {
+  appState.currentUser = user || null;
+  appState.role = user?.role || "visitor";
+  if (!user) {
     localStorage.removeItem(AUTH_SESSION_KEY);
     localStorage.removeItem(AUTH_TOKEN_KEY);
   }
+  renderAuthorizedMenu();
   renderAuthStatus();
   renderPermissionList();
   renderVideoWall();
@@ -882,6 +1023,115 @@ function bindPilotActions() {
   });
 }
 
+function renderAuthStatus() {
+  const status = document.getElementById("userStatus");
+  const loginEntry = document.getElementById("loginEntry");
+  const registerEntry = document.getElementById("registerEntry");
+  if (!status || !loginEntry || !registerEntry) return;
+
+  if (!appState.currentUser) {
+    status.innerHTML = `<i data-lucide="user-round"></i><span>未登录</span>`;
+    loginEntry.innerHTML = `<i data-lucide="log-in"></i><span>登录</span>`;
+    registerEntry.style.display = "none";
+    return;
+  }
+
+  const roleName = appState.currentUser.roleName || appState.currentUser.role;
+  const name = appState.currentUser.displayName || appState.currentUser.email;
+  status.innerHTML = `<i data-lucide="user-check"></i><span>${escapeHtml(name)} · ${escapeHtml(roleName)}</span>`;
+  loginEntry.innerHTML = `<i data-lucide="log-out"></i><span>退出</span>`;
+  registerEntry.style.display = "none";
+}
+
+async function restoreSession() {
+  try {
+    applySession(authSession?.restore() || null);
+  } catch (error) {
+    console.error("Session restore failed", error);
+    authSession?.logout();
+    applySession(null);
+  }
+}
+
+function handleLoginPageSubmit(event) {
+  event.preventDefault();
+  const email = document.getElementById("loginPageEmail")?.value || "";
+  const password = document.getElementById("loginPagePassword")?.value || "";
+  const result = authSession?.login(email, password);
+
+  if (!result?.ok) {
+    setLoginPageMessage(result?.message || "登录失败，请检查账号和密码", "error");
+    return;
+  }
+
+  setLoginPageMessage("");
+  applySession(result.user);
+  const landingView = rbac?.getLandingView(result.user) || "dashboard";
+  appState.router?.navigate(landingView);
+}
+
+function bindNavigation() {
+  document.querySelector(".nav-list")?.addEventListener("click", (event) => {
+    const button = event.target.closest(".nav-item");
+    if (!button) return;
+    appState.router?.navigate(button.dataset.view || "dashboard");
+  });
+
+  document.addEventListener("click", (event) => {
+    const accountButton = event.target.closest("[data-demo-email]");
+    if (accountButton) {
+      const account = mockAccounts.find((item) => item.email === accountButton.dataset.demoEmail);
+      document.getElementById("loginPageEmail").value = account?.email || "";
+      document.getElementById("loginPagePassword").value = account?.password || "";
+      setLoginPageMessage(`已填入 ${accountButton.querySelector("span")?.textContent || "演示"} 账号`);
+      return;
+    }
+
+    const homeButton = event.target.closest("[data-route-home]");
+    if (homeButton) {
+      appState.router?.goHome();
+    }
+  });
+}
+
+function bindAuthControls() {
+  document.getElementById("loginPageForm")?.addEventListener("submit", handleLoginPageSubmit);
+  document.getElementById("loginEntry")?.addEventListener("click", () => {
+    if (appState.currentUser) {
+      authSession?.logout();
+      applySession(null);
+      appState.router?.navigate("login");
+      return;
+    }
+    appState.router?.navigate("login");
+  });
+  document.getElementById("registerEntry")?.style.setProperty("display", "none");
+}
+
+function requireLoginForPilotAction() {
+  if (appState.currentUser) {
+    return true;
+  }
+  setLoginPageMessage("请先登录后再执行试点操作", "error");
+  appState.router?.navigate("login");
+  return false;
+}
+
+function bindRoleControls() {
+  document.querySelectorAll("[data-role]").forEach((button) => {
+    button.disabled = true;
+    button.title = "角色由登录账号决定";
+  });
+}
+
+function updateRoleControls() {
+  document.querySelectorAll("[data-role]").forEach((button) => {
+    button.disabled = true;
+    button.classList.toggle("active", button.dataset.role === appState.currentUser?.role);
+    button.title = "角色由登录账号决定";
+  });
+}
+
 async function bootApp() {
   try {
     await loadDashboardData();
@@ -894,12 +1144,21 @@ async function bootApp() {
     renderBehaviorChart();
     renderTimeChart();
     renderStabilityList();
+    renderDemoAccounts();
     bindNavigation();
     bindVideoControls();
     bindRoleControls();
     bindAuthControls();
     bindPilotActions();
     await restoreSession();
+    appState.router = window.YianRouter.createAppRouter({
+      getUser: () => appState.currentUser,
+      canAccessRoute: rbac.canAccessRoute,
+      getLandingView: rbac.getLandingView,
+      showView: showProtectedView,
+      showLogin: showLoginPage
+    });
+    appState.router.start();
     updateRoleControls();
     refreshIcons();
   } catch (error) {

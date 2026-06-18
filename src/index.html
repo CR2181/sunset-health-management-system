@@ -8,7 +8,42 @@
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
-    <div class="app-shell">
+    <section class="login-page" id="loginPage" aria-label="系统登录">
+      <div class="login-copy">
+        <span class="login-kicker">养老院 AI 安全康复系统</span>
+        <h1>先确认身份，再进入对应工作台。</h1>
+        <p>不同角色只看到自己权限范围内的菜单、任务和数据。当前账号仅用于本地开发和试点演示。</p>
+      </div>
+      <div class="login-card" aria-labelledby="loginTitle">
+        <div class="login-card-head">
+          <span class="badge info">MVP 演示登录</span>
+          <h2 id="loginTitle">登录系统</h2>
+          <p>生产环境不能在登录页展示账号密码，真实上线必须由后端再次校验权限。</p>
+        </div>
+        <form class="login-form" id="loginPageForm">
+          <label>
+            <span>账号</span>
+            <input id="loginPageEmail" name="email" type="email" autocomplete="username" placeholder="name@yian.local" required />
+          </label>
+          <label>
+            <span>密码</span>
+            <input id="loginPagePassword" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required />
+          </label>
+          <p class="auth-message" id="loginPageMessage" aria-live="polite"></p>
+          <button class="primary-action login-submit" type="submit">
+            <i data-lucide="log-in"></i><span>登录</span>
+          </button>
+        </form>
+        <section class="demo-account-panel" aria-label="演示账号">
+          <div>
+            <strong>演示账号</strong>
+            <span>仅用于开发和演示</span>
+          </div>
+          <div class="demo-account-list" id="demoAccountList"></div>
+        </section>
+      </div>
+    </section>
+    <div class="app-shell hidden">
       <aside class="sidebar" aria-label="主导航">
         <div class="brand">
           <div class="brand-mark">颐</div>
@@ -351,6 +386,62 @@
             <div class="standard-table" id="standardTable"></div>
           </section>
         </section>
+
+        <section class="view module-page" id="module-page" aria-label="模块页面">
+          <section class="panel full module-hero">
+            <div class="module-breadcrumb" id="moduleBreadcrumb"></div>
+            <div class="module-hero-head">
+              <div>
+                <span class="badge info" id="moduleModeBadge">MVP 模块</span>
+                <h2 id="moduleTitle">模块页面</h2>
+                <p id="moduleDescription">该模块已建立独立路由，业务功能将在后续迭代完善。</p>
+              </div>
+              <button class="primary-action" data-route-home type="button">
+                <i data-lucide="arrow-left"></i><span>返回工作台</span>
+              </button>
+            </div>
+            <div class="module-status" id="moduleStatus"></div>
+          </section>
+
+          <div class="grid-two">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>当前角色能做什么</h2>
+                  <p id="moduleRoleWork">当前角色只能查看授权范围内的信息。</p>
+                </div>
+              </div>
+              <div class="module-chip-list" id="moduleHighlights"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>模块任务入口</h2>
+                  <p>先保留清晰边界，后续逐步接入真实业务接口。</p>
+                </div>
+              </div>
+              <div class="module-action-list" id="moduleActions"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view fallback-view" id="no-permission" aria-label="无权限访问">
+          <div class="fallback-card">
+            <i data-lucide="lock-keyhole"></i>
+            <h2>无权限访问</h2>
+            <p>当前角色没有访问该页面的权限，请返回自己的工作台，或联系超级管理员调整授权。</p>
+            <button class="primary-action" data-route-home type="button">返回工作台</button>
+          </div>
+        </section>
+
+        <section class="view fallback-view" id="not-found" aria-label="页面不存在">
+          <div class="fallback-card">
+            <i data-lucide="map-x"></i>
+            <h2>页面不存在</h2>
+            <p>你访问的页面不在当前 MVP 范围内。</p>
+            <button class="primary-action" data-route-home type="button">返回工作台</button>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -380,12 +471,17 @@
         </form>
         <div class="auth-demo">
           <strong>演示账号</strong>
-          <span>管理员：admin@yian.local / admin123</span>
-          <span>普通用户：注册后自动成为普通用户</span>
+          <span>请使用登录页的集中演示账号面板。生产环境不能展示账号密码。</span>
         </div>
       </div>
     </div>
 
-    <script src="./app.js?v=ai-camera-20260609"></script>
+    <script src="./config/mock-accounts.js?v=rbac-20260618"></script>
+    <script src="./config/rbac.js?v=routes-20260618"></script>
+    <script src="./auth/session.js?v=rbac-20260618"></script>
+    <script src="./router/router.js?v=rbac-20260618"></script>
+    <script src="./pages/role-dashboards.js?v=rbac-20260618"></script>
+    <script src="./pages/module-pages.js?v=routes-20260618"></script>
+    <script src="./app.js?v=routes-20260618"></script>
   </body>
 </html>

@@ -195,3 +195,76 @@ RTSP 摄像头
 ```
 
 AI 服务输出事件，不直接操作老人档案和护理任务。是否生成告警，由后端规则决定。
+## Login and RBAC MVP Addendum
+
+This addendum defines the first MVP login and role permission framework.
+
+### Product Boundary
+
+The MVP login framework is used for trial demonstration, role-based page isolation, and future backend authentication integration. It does not replace backend permission checks in production.
+
+Production rule: frontend permission control only improves user experience. Backend APIs must still verify identity, role, permission, resident data scope, and visitor authorization.
+
+### Frontend Technology Choice
+
+Keep the current stack:
+
+```text
+HTML + CSS + vanilla JavaScript
+```
+
+Reasons:
+
+- The existing management web page already uses this stack.
+- The MVP only needs a lightweight login page, menu filtering, and route guard.
+- No heavy UI framework or animation dependency is required.
+- Future migration to Vue or React must be documented separately before implementation.
+
+### Auth and RBAC Directory Boundary
+
+The frontend MVP may add these folders under `src/`:
+
+```text
+src/config/       roles, permissions, menus, routes, mock demo accounts
+src/auth/         login, logout, session restore
+src/router/       lightweight hash route guard
+src/pages/        role dashboard metadata and fallback page data
+src/tests/        lightweight browser-independent checks for RBAC/session logic
+```
+
+### Role Model
+
+MVP roles:
+
+```text
+super_admin  full system administrator
+director     nursing home director
+nurse        nurse or care worker
+rehab        rehabilitation therapist
+family       family member
+visitor      authorized visitor or third party
+```
+
+### Permission Model
+
+The frontend must not scatter checks such as `role === "admin"` across pages. Permission judgment must be centralized in `src/config/rbac.js`.
+
+Required mappings:
+
+```text
+roles              role definitions
+permissions        permission point definitions
+rolePermissions    role to permission mapping
+routePermissions   route to permission mapping
+menuPermissions    menu to permission mapping
+```
+
+### Mock Account Rule
+
+Demo accounts are allowed only for local development and MVP demonstrations. They must be centralized in `src/config/mock-accounts.js`.
+
+Production rule: do not display account passwords on the login page in a real deployment.
+
+### Data Privacy Rule
+
+Family users can only see their bound resident summary in the frontend MVP. Third-party or visitor users can only see authorized demo data. The backend must enforce the same data scope before production rollout.
