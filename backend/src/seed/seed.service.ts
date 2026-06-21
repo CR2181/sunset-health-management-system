@@ -48,6 +48,7 @@ export class SeedService implements OnModuleInit {
     await this.seedCollection(this.devices, pilotDevices);
     await this.seedCollection(this.feedback, pilotFeedback);
     await this.seedCollection(this.standards, pilotStandards);
+    await this.backfillPilotAssociations();
   }
 
   private async seedUsers() {
@@ -99,6 +100,25 @@ export class SeedService implements OnModuleInit {
 
     legacyAdmin.email = canonicalEmail;
     await this.users.save(legacyAdmin);
+  }
+
+  private async backfillPilotAssociations() {
+    for (const fixture of pilotTasks) {
+      const task = await this.tasks.findOne({ where: { businessCode: fixture.businessCode } });
+      if (!task || (task.residentCode && task.assigneeEmail)) continue;
+
+      task.residentCode = task.residentCode ?? fixture.residentCode;
+      task.assigneeEmail = task.assigneeEmail ?? fixture.assigneeEmail;
+      await this.tasks.save(task);
+    }
+
+    for (const fixture of pilotAlerts) {
+      const alert = await this.alerts.findOne({ where: { businessCode: fixture.businessCode } });
+      if (!alert || alert.residentCode) continue;
+
+      alert.residentCode = fixture.residentCode;
+      await this.alerts.save(alert);
+    }
   }
 
   private async seedCollection<T extends { businessCode: string }>(

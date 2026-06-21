@@ -10,6 +10,8 @@ import { CreateAiEventDto } from "./dto/create-ai-event.dto";
 import { ReviewAiEventDto } from "./dto/review-ai-event.dto";
 
 @Controller("ai-events")
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles("super_admin", "director", "nurse")
 export class AiEventsController {
   constructor(
     private readonly aiEventsService: AiEventsService,
@@ -17,12 +19,11 @@ export class AiEventsController {
   ) {}
 
   @Get()
-  list() {
-    return this.aiEventsService.list();
+  list(@AuthUser() actor: RequestUser) {
+    return this.aiEventsService.list(actor);
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("super_admin", "director")
   async create(@Body() dto: CreateAiEventDto, @AuthUser() actor: RequestUser) {
     const event = await this.aiEventsService.create(dto);
@@ -38,10 +39,9 @@ export class AiEventsController {
   }
 
   @Patch(":id/review")
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("super_admin", "director", "nurse")
   async review(@Param("id") id: string, @Body() dto: ReviewAiEventDto, @AuthUser() actor: RequestUser) {
-    const event = await this.aiEventsService.review(id, dto);
+    const event = await this.aiEventsService.review(id, dto, actor);
     await this.auditService.record({
       action: "ai_event.review",
       resourceType: "ai_event",

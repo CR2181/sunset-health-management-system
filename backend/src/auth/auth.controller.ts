@@ -3,7 +3,7 @@ import { AuthUser } from "../common/auth-user.decorator";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
-import { RegisterDto } from "./dto/register.dto";
+import { RequestUser } from "../common/user-role";
 
 @Controller("auth")
 export class AuthController {
@@ -14,14 +14,9 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
-  @Post("register")
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
-  }
-
   @UseGuards(JwtAuthGuard)
   @Get("me")
-  me(@AuthUser() user: { id: string; email: string; role: string }) {
+  me(@AuthUser() user: RequestUser) {
     return { user };
   }
 }

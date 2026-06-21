@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
+import { canAccessResidentCode, getResidentScope } from "../../common/access-policy";
+import { RequestUser } from "../../common/user-role";
 import { UpdateCareTaskStatusDto } from "./dto/update-care-task-status.dto";
 import { CareTask } from "./care-task.entity";
 
@@ -8,12 +10,27 @@ import { CareTask } from "./care-task.entity";
 export class CareTasksService {
   constructor(@InjectRepository(CareTask) private readonly careTasks: Repository<CareTask>) {}
 
-  list() {
-    return this.careTasks.find({ order: { sortOrder: "ASC", createdAt: "ASC" } });
+  list(actor: RequestUser) {
+    const residentCodes = getResidentScope(actor);
+
+    if (residentCodes === null) {
+      return this.careTasks.find({ order: { sortOrder: "ASC", createdAt: "ASC" } });
+    }
+    if (!residentCodes.length) {
+      return [];
+    }
+
+    return this.careTasks.find({
+      where: { residentCode: In(residentCodes) },
+      order: { sortOrder: "ASC", createdAt: "ASC" },
+    });
   }
 
-  async updateStatus(id: string, dto: UpdateCareTaskStatusDto) {
+  async updateStatus(id: string, dto: UpdateCareTaskStatusDto, actor: RequestUser) {
     const task = await this.findById(id);
+    if (!canAccessResidentCode(actor, task.residentCode)) {
+      throw new ForbiddenException("无权修改该护理任务");
+    }
     task.status = dto.status;
     task.lastNote = dto.note;
     task.state = this.toDisplayState(dto.status);

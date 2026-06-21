@@ -4,6 +4,7 @@ import { JwtModule } from "@nestjs/jwt";
 import type { JwtSignOptions } from "@nestjs/jwt";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
+import { AuditModule } from "../modules/audit/audit.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { User } from "./user.entity";
@@ -12,6 +13,7 @@ import { User } from "./user.entity";
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
+    AuditModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -33,6 +35,6 @@ import { User } from "./user.entity";
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtAuthGuard],
-  exports: [AuthService, TypeOrmModule, JwtModule]
+  exports: [AuthService, JwtAuthGuard, TypeOrmModule, JwtModule]
 })
 export class AuthModule {}

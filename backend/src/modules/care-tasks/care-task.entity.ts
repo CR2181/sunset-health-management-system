@@ -3,6 +3,12 @@ import { BaseBusinessEntity } from "../../common/entities/base-business.entity";
 
 @Entity("care_tasks")
 export class CareTask extends BaseBusinessEntity {
+  @Column({ name: "resident_code", nullable: true })
+  residentCode?: string;
+
+  @Column({ name: "assignee_email", nullable: true })
+  assigneeEmail?: string;
+
   @Column()
   title: string;
 

@@ -10,6 +10,8 @@ import { CreateResidentDto } from "./dto/create-resident.dto";
 import { UpdateResidentDto } from "./dto/update-resident.dto";
 
 @Controller("residents")
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles("super_admin", "director", "nurse", "rehab", "family")
 export class ResidentsController {
   constructor(
     private readonly residentsService: ResidentsService,
@@ -17,13 +19,12 @@ export class ResidentsController {
   ) {}
 
   @Get()
-  list() {
-    return this.residentsService.list();
+  list(@AuthUser() actor: RequestUser) {
+    return this.residentsService.list(actor);
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("super_admin", "director", "nurse")
+  @Roles("super_admin", "director")
   async create(@Body() dto: CreateResidentDto, @AuthUser() actor: RequestUser) {
     const resident = await this.residentsService.create(dto);
     await this.auditService.record({
@@ -37,10 +38,9 @@ export class ResidentsController {
   }
 
   @Patch(":id")
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("super_admin", "director", "nurse")
   async update(@Param("id") id: string, @Body() dto: UpdateResidentDto, @AuthUser() actor: RequestUser) {
-    const resident = await this.residentsService.update(id, dto);
+    const resident = await this.residentsService.update(id, dto, actor);
     await this.auditService.record({
       action: "resident.update",
       resourceType: "resident",

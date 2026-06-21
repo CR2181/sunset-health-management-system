@@ -25,5 +25,14 @@ export function getResidentScope(
     return null;
   }
 
-  return user.residentCodes;
+  return user.residentCodes ?? [];
+}
+
+export function canAccessResidentCode(
+  user: Pick<RequestUser, "role" | "residentCodes">,
+  residentCode?: string,
+): boolean {
+  const scope = getResidentScope(user);
+  if (scope === null) return true;
+  return Boolean(residentCode && scope.includes(residentCode));
 }

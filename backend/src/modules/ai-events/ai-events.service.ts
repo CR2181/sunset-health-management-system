@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
+import { canAccessResidentCode, getResidentScope } from "../../common/access-policy";
+import { RequestUser } from "../../common/user-role";
 import { AiEvent } from "./ai-event.entity";
 import { CreateAiEventDto } from "./dto/create-ai-event.dto";
 import { ReviewAiEventDto } from "./dto/review-ai-event.dto";
@@ -9,8 +11,20 @@ import { ReviewAiEventDto } from "./dto/review-ai-event.dto";
 export class AiEventsService {
   constructor(@InjectRepository(AiEvent) private readonly aiEvents: Repository<AiEvent>) {}
 
-  list() {
-    return this.aiEvents.find({ order: { createdAt: "DESC" }, take: 50 });
+  list(actor: RequestUser) {
+    const residentCodes = getResidentScope(actor);
+    if (residentCodes === null) {
+      return this.aiEvents.find({ order: { createdAt: "DESC" }, take: 50 });
+    }
+    if (!residentCodes.length) {
+      return [];
+    }
+
+    return this.aiEvents.find({
+      where: { residentCode: In(residentCodes) },
+      order: { createdAt: "DESC" },
+      take: 50,
+    });
   }
 
   create(dto: CreateAiEventDto) {
@@ -23,8 +37,11 @@ export class AiEventsService {
     return this.aiEvents.save(event);
   }
 
-  async review(id: string, dto: ReviewAiEventDto) {
+  async review(id: string, dto: ReviewAiEventDto, actor: RequestUser) {
     const event = await this.findById(id);
+    if (!canAccessResidentCode(actor, event.residentCode)) {
+      throw new ForbiddenException("无权复核该 AI 事件");
+    }
     event.status = dto.status;
     event.reviewedBy = dto.reviewedBy;
     event.reviewedAt = new Date();

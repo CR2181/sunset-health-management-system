@@ -3,6 +3,9 @@ import { BaseBusinessEntity } from "../../common/entities/base-business.entity";
 
 @Entity("alerts")
 export class AlertEvent extends BaseBusinessEntity {
+  @Column({ name: "resident_code", nullable: true })
+  residentCode?: string;
+
   @Column()
   title: string;
 

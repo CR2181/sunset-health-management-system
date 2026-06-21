@@ -9,6 +9,8 @@ import { CreateDeviceEventDto } from "./dto/create-device-event.dto";
 import { DeviceEventsService } from "./device-events.service";
 
 @Controller("device-events")
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles("super_admin", "director")
 export class DeviceEventsController {
   constructor(
     private readonly deviceEventsService: DeviceEventsService,
@@ -21,8 +23,7 @@ export class DeviceEventsController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("super_admin", "director")
+  @Roles("super_admin")
   async create(@Body() dto: CreateDeviceEventDto, @AuthUser() actor: RequestUser) {
     const event = await this.deviceEventsService.create(dto);
     await this.auditService.record({

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Query, UseGuards } from "@nestjs/common";
 import { AuthUser } from "../../common/auth-user.decorator";
 import { JwtAuthGuard } from "../../common/jwt-auth.guard";
 import { Roles } from "../../common/roles.decorator";
@@ -10,6 +10,8 @@ import { AckAlertDto } from "./dto/ack-alert.dto";
 import { ResolveAlertDto } from "./dto/resolve-alert.dto";
 
 @Controller("alerts")
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles("super_admin", "director", "nurse")
 export class AlertsController {
   constructor(
     private readonly alertsService: AlertsService,
@@ -17,15 +19,14 @@ export class AlertsController {
   ) {}
 
   @Get()
-  list() {
-    return this.alertsService.list();
+  list(@AuthUser() actor: RequestUser, @Query("mode") mode?: string) {
+    return this.alertsService.list(actor, mode);
   }
 
   @Patch(":id/ack")
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("super_admin", "director", "nurse")
   async acknowledge(@Param("id") id: string, @Body() dto: AckAlertDto, @AuthUser() actor: RequestUser) {
-    const alert = await this.alertsService.acknowledge(id, dto);
+    const alert = await this.alertsService.acknowledge(id, dto, actor);
     await this.auditService.record({
       action: "alert.acknowledge",
       resourceType: "alert",
@@ -37,10 +38,9 @@ export class AlertsController {
   }
 
   @Patch(":id/resolve")
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("super_admin", "director", "nurse")
   async resolve(@Param("id") id: string, @Body() dto: ResolveAlertDto, @AuthUser() actor: RequestUser) {
-    const alert = await this.alertsService.resolve(id, dto);
+    const alert = await this.alertsService.resolve(id, dto, actor);
     await this.auditService.record({
       action: "alert.resolve",
       resourceType: "alert",
@@ -52,10 +52,9 @@ export class AlertsController {
   }
 
   @Patch(":id/false-positive")
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("super_admin", "director", "nurse")
   async markFalsePositive(@Param("id") id: string, @Body() dto: ResolveAlertDto, @AuthUser() actor: RequestUser) {
-    const alert = await this.alertsService.markFalsePositive(id, dto);
+    const alert = await this.alertsService.markFalsePositive(id, dto, actor);
     await this.auditService.record({
       action: "alert.false_positive",
       resourceType: "alert",

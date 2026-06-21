@@ -9,6 +9,8 @@ import { DevicesService } from "./devices.service";
 import { HeartbeatDeviceDto } from "./dto/heartbeat-device.dto";
 
 @Controller("devices")
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles("super_admin", "director")
 export class DevicesController {
   constructor(
     private readonly devicesService: DevicesService,
@@ -21,8 +23,7 @@ export class DevicesController {
   }
 
   @Patch(":id/heartbeat")
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("super_admin", "director")
+  @Roles("super_admin")
   async heartbeat(@Param("id") id: string, @Body() dto: HeartbeatDeviceDto, @AuthUser() actor: RequestUser) {
     const device = await this.devicesService.heartbeat(id, dto);
     await this.auditService.record({

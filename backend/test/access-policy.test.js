@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const {
   LEGACY_ROLE_MAPPINGS,
   USER_ROLES,
+  canAccessResidentCode,
   canManageAlerts,
   canReadAuditLogs,
   getResidentScope,
@@ -59,3 +60,14 @@ for (const role of USER_ROLES) {
     expected.scope,
   );
 }
+
+assert.deepEqual(getResidentScope({ role: "family" }), []);
+
+assert.equal(
+  canAccessResidentCode({ role: "super_admin", residentCodes: [] }, "RES-999"),
+  true,
+);
+assert.equal(canAccessResidentCode({ role: "super_admin", residentCodes: [] }, undefined), true);
+assert.equal(canAccessResidentCode({ role: "nurse", residentCodes: ["RES-001"] }, "RES-001"), true);
+assert.equal(canAccessResidentCode({ role: "nurse", residentCodes: ["RES-001"] }, "RES-002"), false);
+assert.equal(canAccessResidentCode({ role: "family", residentCodes: ["RES-001"] }, undefined), false);
