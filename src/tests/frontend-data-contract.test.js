@@ -29,5 +29,10 @@ assert.equal(rbac.getRouteByKey("safety-alerts").legacyView, "safety");
 assert.equal(rbac.getRouteByKey("alert-records").legacyView, "alert-records");
 assert.equal(rbac.getRouteByKey("devices").legacyView, "devices");
 assert.equal(rbac.getRouteByKey("audit-logs").legacyView, "audit-logs");
+assert.match(
+  app,
+  /if \(routeKey === "audit-logs"\) auditLogs = data;\s*renderBaseLists\(\);\s*renderRouteCollections\(\);/,
+  "route-specific database loads must render existing and dedicated business lists",
+);
 
 console.log("frontend data contract tests passed");

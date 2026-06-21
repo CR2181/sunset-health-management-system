@@ -354,6 +354,7 @@ async function loadRouteData(routeKey) {
   }
   if (routeKey === "audit-logs") auditLogs = data;
 
+  renderBaseLists();
   renderRouteCollections();
   refreshIcons();
 }
