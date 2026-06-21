@@ -59,6 +59,15 @@ assert.equal(new Set(menuKeys).size, menuKeys.length, "menu keys must be unique"
 const menuPaths = menuPermissions.map((item) => item.path);
 assert.equal(new Set(menuPaths).size, menuPaths.length, "menu paths must be unique");
 
+const superAdminMenus = getMenusForUser(superAdmin);
+routeRegistry
+  .filter((route) => route.isMenuVisible)
+  .forEach((route) => {
+    assert.equal(getActiveMenuKey(route.path, superAdminMenus), route.menuKey);
+  });
+assert.equal(getActiveMenuKey("/not-found", superAdminMenus), null);
+assert.equal(getActiveMenuKey("/no-permission", superAdminMenus), null);
+
 assert.equal(getActiveMenuKey("/care-tasks", menuPermissions), "care-tasks");
 assert.notEqual(getActiveMenuKey("/care-tasks", menuPermissions), "rehab");
 assert.equal(getActiveMenuKey("/rehab", menuPermissions), "rehab");
