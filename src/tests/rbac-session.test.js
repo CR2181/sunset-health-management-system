@@ -63,7 +63,11 @@ const superAdminMenus = getMenusForUser(superAdmin);
 routeRegistry
   .filter((route) => route.isMenuVisible)
   .forEach((route) => {
-    assert.equal(getActiveMenuKey(route.path, superAdminMenus), route.menuKey);
+    assert.equal(
+      getActiveMenuKey(route.path, superAdminMenus),
+      route.menuKey,
+      `${route.path} must activate only ${route.menuKey}`
+    );
   });
 assert.equal(getActiveMenuKey("/not-found", superAdminMenus), null);
 assert.equal(getActiveMenuKey("/no-permission", superAdminMenus), null);
