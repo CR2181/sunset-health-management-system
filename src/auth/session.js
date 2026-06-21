@@ -1,60 +1,38 @@
 (function initAuthSession(global) {
-  const SESSION_KEY = "yian-rbac-session";
+  const SESSION_KEY = "yian-auth-session";
 
-  function sanitizeUser(account) {
-    if (!account) return null;
+  function sanitizeUser(user) {
+    if (!user?.email || !user?.role) return null;
     return {
-      email: account.email,
-      role: account.role,
-      roleName: account.roleName,
-      displayName: account.displayName,
-      assignedResidentCodes: account.assignedResidentCodes || [],
-      boundResidentCodes: account.boundResidentCodes || []
+      id: user.id,
+      email: String(user.email).trim().toLowerCase(),
+      role: user.role,
+      displayName: user.displayName || user.email,
+      residentCodes: Array.isArray(user.residentCodes) ? [...user.residentCodes] : [],
     };
   }
 
   function createAuthSessionManager(options = {}) {
     const storage = options.storage || global.localStorage;
-    const accounts = options.accounts || global.YianMockAccounts?.demoAccounts || [];
 
-    function findAccount(email) {
-      const normalizedEmail = String(email || "").trim().toLowerCase();
-      return accounts.find((account) => account.email.toLowerCase() === normalizedEmail);
-    }
-
-    function login(email, password) {
-      const account = findAccount(email);
-      if (!account || account.password !== password) {
-        return {
-          ok: false,
-          code: "AUTH_INVALID_CREDENTIALS",
-          message: "账号或密码不正确"
-        };
+    function save(user, token) {
+      const safeUser = sanitizeUser(user);
+      if (!safeUser || !token) {
+        throw new Error("A valid backend user and token are required.");
       }
-
-      const user = sanitizeUser(account);
-      storage.setItem(SESSION_KEY, JSON.stringify(user));
-      return {
-        ok: true,
-        code: "OK",
-        user
-      };
+      storage.setItem(SESSION_KEY, JSON.stringify({ user: safeUser, token: String(token) }));
     }
 
     function restore() {
       try {
-        const raw = storage.getItem(SESSION_KEY);
-        if (!raw) return null;
-        const user = JSON.parse(raw);
-        const account = findAccount(user?.email);
-        if (!account) {
+        const value = JSON.parse(storage.getItem(SESSION_KEY) || "null");
+        const user = sanitizeUser(value?.user);
+        if (!user || !value?.token) {
           storage.removeItem(SESSION_KEY);
           return null;
         }
-        const restoredUser = sanitizeUser(account);
-        storage.setItem(SESSION_KEY, JSON.stringify(restoredUser));
-        return restoredUser;
-      } catch (error) {
+        return { user, token: String(value.token) };
+      } catch {
         storage.removeItem(SESSION_KEY);
         return null;
       }
@@ -64,19 +42,10 @@
       storage.removeItem(SESSION_KEY);
     }
 
-    return {
-      login,
-      restore,
-      logout,
-      sessionKey: SESSION_KEY
-    };
+    return { save, restore, logout, sessionKey: SESSION_KEY };
   }
 
-  global.YianAuthSession = {
-    SESSION_KEY,
-    createAuthSessionManager,
-    sanitizeUser
-  };
+  global.YianAuthSession = { SESSION_KEY, createAuthSessionManager, sanitizeUser };
 
   if (typeof module !== "undefined" && module.exports) {
     module.exports = global.YianAuthSession;

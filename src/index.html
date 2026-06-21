@@ -104,9 +104,6 @@
             <button class="ghost-button" id="loginEntry" type="button">
               <i data-lucide="log-in"></i><span>登录</span>
             </button>
-            <button class="ghost-button" id="registerEntry" type="button">
-              <i data-lucide="user-plus"></i><span>注册</span>
-            </button>
             <button class="icon-button" type="button" aria-label="搜索">
               <i data-lucide="search"></i>
             </button>
@@ -121,24 +118,24 @@
 
         <section class="summary-band" aria-label="关键指标">
           <article class="metric-block">
-            <span>入住率</span>
-            <strong>92.6%</strong>
-            <small>较上月 +3.2%</small>
+            <span>授权老人</span>
+            <strong id="summaryResidentCount">--</strong>
+            <small>来自数据库当前角色范围</small>
           </article>
           <article class="metric-block">
-            <span>照护按时率</span>
-            <strong>98.4%</strong>
-            <small>今日 1,248 项任务</small>
+            <span>待处理护理任务</span>
+            <strong id="summaryPendingTaskCount">--</strong>
+            <small>待处理与超时任务</small>
           </article>
           <article class="metric-block urgent">
-            <span>告警 P95 响应</span>
-            <strong>42 秒</strong>
-            <small>高标要求 ≤ 60 秒</small>
+            <span>当前安全告警</span>
+            <strong id="summaryLiveAlertCount">--</strong>
+            <small>未解决和未标记误报</small>
           </article>
           <article class="metric-block">
-            <span>AI行为识别准确率</span>
-            <strong>96.8%</strong>
-            <small>误报率 3.2%</small>
+            <span>在线设备</span>
+            <strong id="summaryOnlineDeviceCount">--</strong>
+            <small id="summaryDeviceTotal">共 -- 台设备</small>
           </article>
         </section>
 
@@ -443,37 +440,6 @@
           </div>
         </section>
       </main>
-    </div>
-
-    <div class="auth-modal" id="authModal" aria-hidden="true">
-      <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
-        <button class="icon-button auth-close" id="authClose" type="button" aria-label="关闭">
-          <i data-lucide="x"></i>
-        </button>
-        <div class="auth-head">
-          <span class="badge info" id="authModeBadge">登录</span>
-          <h2 id="authTitle">登录智慧养老系统</h2>
-          <p id="authHint">管理员可查看全部公共视频和审计数据，普通用户只查看授权范围。</p>
-        </div>
-        <form class="auth-form" id="authForm">
-          <label>
-            <span>邮箱</span>
-            <input id="authEmail" name="email" type="email" autocomplete="email" placeholder="name@example.com" required />
-          </label>
-          <label>
-            <span>密码</span>
-            <input id="authPassword" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required minlength="6" />
-          </label>
-          <p class="auth-message" id="authMessage"></p>
-          <button class="primary-action auth-submit" type="submit">
-            <i data-lucide="shield-check"></i><span id="authSubmitText">登录</span>
-          </button>
-        </form>
-        <div class="auth-demo">
-          <strong>演示账号</strong>
-          <span>请使用登录页的集中演示账号面板。生产环境不能展示账号密码。</span>
-        </div>
-      </div>
     </div>
 
     <script src="./config/mock-accounts.js?v=rbac-20260618"></script>

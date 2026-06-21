@@ -3,61 +3,21 @@ const appState = {
   role: "visitor",
   authMode: "login",
   currentUser: null,
-  router: null
+  router: null,
+  dataError: "",
+  summary: null
 };
 
-const AUTH_USERS_KEY = "yian-auth-users";
-const AUTH_SESSION_KEY = "yian-auth-session";
-const AUTH_TOKEN_KEY = "yian-auth-token";
-const API_BASE = window.APP_API_BASE || (["8080", "5500"].includes(window.location.port) ? "http://127.0.0.1:3000" : "");
-const builtinUsers = [
-  { email: "admin@yian.local", password: "admin123", role: "admin" }
-];
+const API_BASE = window.APP_API_BASE || (["5177", "8080", "5500"].includes(window.location.port) ? "http://127.0.0.1:3000" : "");
 const mockAccounts = window.YianMockAccounts?.demoAccounts || [];
 const rbac = window.YianRBAC;
-const authSession = window.YianAuthSession?.createAuthSessionManager({
-  accounts: mockAccounts
-});
+const authSession = window.YianAuthSession?.createAuthSessionManager();
 
-let residents = [
-  { name: "李桂英", age: 82, room: "4F-护理区 412", risk: "认知越界", detail: "MMSE 18 · 夜间离床 2 次 · AI徘徊预警 1 次" },
-  { name: "张守仁", age: 79, room: "2F-失能照护 208", risk: "跌倒高危", detail: "ADL 42 · 智能床垫离床告警 · AI姿态异常" },
-  { name: "陈玉兰", age: 86, room: "3F-自理公寓 315", risk: "慢病关注", detail: "血糖餐后偏高 · 低糖餐单 · 活动量下降" }
-];
-
-let integrations = [
-  { icon: "hospital", name: "医院 HIS", state: "双向转诊在线" },
-  { icon: "credit-card", name: "医保/长护险", state: "结算接口正常" },
-  { icon: "watch", name: "定位手环", state: "286 台在线" },
-  { icon: "bed", name: "智能床垫", state: "132 张在线" },
-  { icon: "cctv", name: "AI视频中枢", state: "64 路接入" }
-];
-
-let tasks = [
-  { title: "李桂英 · 17:30 晚间用药核对", meta: "护理员 王敏 · 智能药箱已开盒", state: "进行中", tone: "doing" },
-  { title: "张守仁 · 18:00 翻身与皮肤检查", meta: "2F-208 · 超时 6 分钟已升级", state: "超时", tone: "late" },
-  { title: "陈玉兰 · 餐后血糖复测", meta: "血糖仪自动同步 · 家属可见", state: "已完成", tone: "done" },
-  { title: "康复区 · 下肢训练 20 分钟", meta: "术后康复计划第 12 天", state: "已完成", tone: "done" }
-];
-
-let alerts = [
-  { title: "4F 认知照护区越界风险", meta: "李桂英距离安全门 3.2 米 · 已通知责任护理员", level: "high", state: "23 秒" },
-  { title: "2F-208 智能床垫离床异常", meta: "张守仁夜间跌倒高危 · AI摄像未覆盖卧室私密区", level: "high", state: "41 秒" },
-  { title: "厨房燃气传感器波动", meta: "已联动后勤巡检 · 暂未达到消防阈值", level: "medium", state: "待复核" }
-];
-
-let rtspStreams = [
-  { name: "4F 认知照护走廊", stream: "rtsp://camera.local/4f-corridor-01", status: "online", fps: 25, delay: 180, behavior: "越界关注", model: "YOLOv12" },
-  { name: "2F 失能公共区", stream: "rtsp://camera.local/2f-care-03", status: "online", fps: 24, delay: 210, behavior: "跌倒识别", model: "YOLOv11" },
-  { name: "1F 康复训练区", stream: "rtsp://camera.local/1f-rehab-02", status: "online", fps: 25, delay: 165, behavior: "动作评估", model: "YOLOv10" },
-  { name: "室外花园门禁", stream: "rtsp://camera.local/garden-gate-01", status: "online", fps: 20, delay: 240, behavior: "越界防走失", model: "YOLOv9" },
-  { name: "食堂公共活动区", stream: "rtsp://camera.local/dining-01", status: "warning", fps: 18, delay: 320, behavior: "聚集与滞留", model: "YOLOv8" },
-  { name: "3F 自理公寓走廊", stream: "rtsp://camera.local/3f-corridor-02", status: "online", fps: 25, delay: 175, behavior: "长时静止", model: "YOLOv12" },
-  { name: "2F 护理站门口", stream: "rtsp://camera.local/2f-nurse-01", status: "online", fps: 25, delay: 190, behavior: "呼救联动", model: "YOLOv11" },
-  { name: "院区主入口", stream: "rtsp://camera.local/main-gate-01", status: "online", fps: 22, delay: 260, behavior: "陌生人闯入", model: "YOLOv10" },
-  { name: "公共休闲区", stream: "rtsp://camera.local/lounge-01", status: "offline", fps: 0, delay: 0, behavior: "信号中断", model: "备用通道" }
-];
-
+let residents = [];
+let integrations = [];
+let tasks = [];
+let alerts = [];
+let rtspStreams = [];
 let devices = [];
 let aiEvents = [];
 
@@ -127,20 +87,8 @@ const stabilityItems = [
   { name: "数据留痕", value: "事件、响应、复核全链路审计" }
 ];
 
-let feedback = [
-  { title: "家属提交：周三视频探视", meta: "李桂英女儿 · 已分配客服 14:20 回复", state: "处理中" },
-  { title: "账单疑问：康复服务明细", meta: "张守仁家属 · 财务已补充分项说明", state: "已回复" },
-  { title: "服务评价：助浴照护满意", meta: "陈玉兰家属 · 5 星评价进入绩效", state: "已归档" }
-];
-
-let standards = [
-  { name: "合规性", desc: "分级授权、隐私加密、审计日志、监管平台对接", score: 96 },
-  { name: "照护适配", desc: "覆盖自理、半失能、失能、失智，评估工具统一", score: 94 },
-  { name: "安全响应", desc: "告警无盲区，P95 响应 42 秒，定位误差 ≤ 5 米", score: 93 },
-  { name: "视频AI", desc: "RTSP 多路接入、YOLO 行为识别、BoTSORT 跟踪、LLM 健康建议", score: 95 },
-  { name: "互联互通", desc: "HIS、医保、长护险、智能硬件接口可扩展", score: 91 },
-  { name: "稳定性", desc: "断流重连、服务降级、权限隔离、审计留痕", score: 96 }
-];
+let feedback = [];
+let standards = [];
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -165,6 +113,15 @@ function setLoginPageMessage(message, tone = "") {
 function renderDemoAccounts() {
   const target = document.getElementById("demoAccountList");
   if (!target) return;
+  const isLocalDemoHost = ["127.0.0.1", "localhost"].includes(window.location.hostname);
+  const canShowDemoAccounts = isLocalDemoHost && window.APP_SHOW_DEMO_ACCOUNTS !== false;
+  const panel = target.closest(".demo-account-panel");
+  if (!canShowDemoAccounts) {
+    target.innerHTML = "";
+    if (panel) panel.hidden = true;
+    return;
+  }
+  if (panel) panel.hidden = false;
   target.innerHTML = mockAccounts.map((account) => `
     <button class="demo-account-item" data-demo-email="${escapeHtml(account.email)}" type="button">
       <span>${escapeHtml(account.roleName)}</span>
@@ -284,7 +241,7 @@ function renderModulePage(route) {
 
 async function apiRequest(path, options = {}) {
   const headers = { ...(options.headers || {}) };
-  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const token = authSession?.restore()?.token;
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -306,7 +263,17 @@ async function apiRequest(path, options = {}) {
     } catch {
       // Keep the status-based message when the body is not JSON.
     }
-    throw new Error(Array.isArray(message) ? message.join("; ") : message);
+    const error = new Error(Array.isArray(message) ? message.join("; ") : message);
+    error.status = response.status;
+    if (response.status === 401 && path !== "/auth/login") {
+      authSession?.logout();
+      applySession(null);
+      showLoginPage();
+    }
+    if (response.status === 403) {
+      appState.router?.navigate("no-permission");
+    }
+    throw error;
   }
 
   if (response.status === 204) return null;
@@ -325,17 +292,28 @@ async function loadDashboardData() {
     if (Array.isArray(data.devices)) devices = data.devices;
     if (Array.isArray(data.feedback)) feedback = data.feedback;
     if (Array.isArray(data.standards)) standards = data.standards;
+    appState.summary = data.summary || null;
+    appState.dataError = "";
+    renderSummary();
   } catch (error) {
-    console.warn("Backend API unavailable, using local demo data.", error);
+    residents = [];
+    integrations = [];
+    tasks = [];
+    alerts = [];
+    rtspStreams = [];
+    devices = [];
+    feedback = [];
+    standards = [];
+    appState.summary = null;
+    appState.dataError = "数据库服务暂不可用，请检查后端和数据库后重试。";
+    renderSummary();
+    showPilotMessage(appState.dataError, "error");
+    throw error;
   }
 }
 
 async function loadPilotEvents() {
-  try {
-    aiEvents = await apiRequest("/ai-events");
-  } catch (error) {
-    console.warn("AI event list unavailable.", error);
-  }
+  aiEvents = await apiRequest("/ai-events");
 }
 
 function renderList(id, items, renderer, emptyText = "暂无数据") {
@@ -471,194 +449,15 @@ function renderPermissionList() {
   `);
 }
 
-function getStoredUsers() {
-  try {
-    return JSON.parse(localStorage.getItem(AUTH_USERS_KEY) || "[]");
-  } catch (error) {
-    console.error("User storage read failed", error);
-    return [];
-  }
-}
-
-function saveStoredUsers(users) {
-  localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
-}
-
-function getAllUsers() {
-  const stored = getStoredUsers();
-  return [...builtinUsers, ...stored];
-}
-
-function findUser(email) {
-  const normalized = String(email || "").trim().toLowerCase();
-  return getAllUsers().find((user) => user.email.toLowerCase() === normalized);
-}
-
-function setAuthMessage(message, tone = "") {
-  const target = document.getElementById("authMessage");
-  if (!target) return;
-  target.textContent = message;
-  target.className = `auth-message ${safeClass(tone)}`;
-}
-
-function openAuthModal(mode = "login") {
-  appState.authMode = mode === "register" ? "register" : "login";
-  const modal = document.getElementById("authModal");
-  const title = document.getElementById("authTitle");
-  const badge = document.getElementById("authModeBadge");
-  const submit = document.getElementById("authSubmitText");
-  const hint = document.getElementById("authHint");
-  if (!modal || !title || !badge || !submit || !hint) return;
-
-  const isRegister = appState.authMode === "register";
-  title.textContent = isRegister ? "注册普通用户" : "登录智慧养老系统";
-  badge.textContent = isRegister ? "注册" : "登录";
-  submit.textContent = isRegister ? "注册并登录" : "登录";
-  hint.textContent = isRegister
-    ? "注册只需要邮箱和密码，新账号默认普通用户权限。"
-    : "管理员可查看全部公共视频和审计数据，普通用户只查看授权范围。";
-  setAuthMessage("");
-  modal.classList.add("open");
-  modal.setAttribute("aria-hidden", "false");
-  document.getElementById("authEmail")?.focus();
-}
-
-function closeAuthModal() {
-  const modal = document.getElementById("authModal");
-  if (!modal) return;
-  modal.classList.remove("open");
-  modal.setAttribute("aria-hidden", "true");
-}
-
 function applySession(user) {
   appState.currentUser = user || null;
   appState.role = user?.role || "visitor";
-  if (!user) {
-    localStorage.removeItem(AUTH_SESSION_KEY);
-    localStorage.removeItem(AUTH_TOKEN_KEY);
-  }
   renderAuthorizedMenu();
   renderAuthStatus();
   renderPermissionList();
   renderVideoWall();
   updateRoleControls();
   refreshIcons();
-}
-
-function applyAuthResult(result) {
-  if (result?.accessToken) {
-    localStorage.setItem(AUTH_TOKEN_KEY, result.accessToken);
-  }
-  applySession(result?.user || null);
-}
-
-function renderAuthStatus() {
-  const status = document.getElementById("userStatus");
-  const loginEntry = document.getElementById("loginEntry");
-  const registerEntry = document.getElementById("registerEntry");
-  if (!status || !loginEntry || !registerEntry) return;
-
-  if (!appState.currentUser) {
-    status.innerHTML = `<i data-lucide="user-round"></i><span>未登录 · 普通权限</span>`;
-    loginEntry.innerHTML = `<i data-lucide="log-in"></i><span>登录</span>`;
-    registerEntry.style.display = "";
-    return;
-  }
-
-  const roleName = appState.currentUser.role === "admin" ? "管理员" : "普通用户";
-  status.innerHTML = `<i data-lucide="user-check"></i><span>${escapeHtml(appState.currentUser.email)} · ${roleName}</span>`;
-  loginEntry.innerHTML = `<i data-lucide="log-out"></i><span>退出</span>`;
-  registerEntry.style.display = "none";
-}
-
-async function restoreSession() {
-  try {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY);
-    if (token) {
-      const result = await apiRequest("/auth/me");
-      applySession(result.user);
-      return;
-    }
-
-    const session = JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || "null");
-    if (!session?.email) {
-      applySession(null);
-      return;
-    }
-    const user = findUser(session.email);
-    applySession(user ? { email: user.email, role: user.role } : null);
-  } catch (error) {
-    console.error("Session restore failed", error);
-    applySession(null);
-  }
-}
-
-async function handleAuthSubmit(event) {
-  event.preventDefault();
-  const email = document.getElementById("authEmail")?.value.trim().toLowerCase();
-  const password = document.getElementById("authPassword")?.value || "";
-  if (!email || !password) {
-    setAuthMessage("请输入邮箱和密码。", "error");
-    return;
-  }
-  if (password.length < 6) {
-    setAuthMessage("密码至少 6 位。", "error");
-    return;
-  }
-
-  if (appState.authMode === "register") {
-    try {
-      const result = await apiRequest("/auth/register", {
-        method: "POST",
-        body: JSON.stringify({ email, password })
-      });
-      applyAuthResult(result);
-      closeAuthModal();
-      return;
-    } catch (error) {
-      if (!String(error.message || "").includes("Failed to fetch")) {
-        setAuthMessage(error.message || "注册失败，请稍后重试。", "error");
-        return;
-      }
-      console.warn("Backend register unavailable, using local demo auth.", error);
-    }
-
-    if (findUser(email)) {
-      setAuthMessage("该邮箱已注册，请直接登录。", "error");
-      return;
-    }
-    const users = getStoredUsers();
-    const user = { email, password, role: "user" };
-    users.push(user);
-    saveStoredUsers(users);
-    applySession(user);
-    closeAuthModal();
-    return;
-  }
-
-  try {
-    const result = await apiRequest("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password })
-    });
-    applyAuthResult(result);
-    closeAuthModal();
-    return;
-  } catch (error) {
-    if (!String(error.message || "").includes("Failed to fetch")) {
-      setAuthMessage(error.message || "登录失败，请检查账号和密码。", "error");
-      return;
-    }
-    console.warn("Backend login unavailable, using local demo auth.", error);
-  }
-
-  const user = findUser(email);
-  if (!user || user.password !== password) {
-    setAuthMessage("邮箱或密码不正确。", "error");
-    return;
-  }
-  applySession(user);
-  closeAuthModal();
 }
 
 function renderBehaviorChart() {
@@ -815,18 +614,13 @@ function showPilotMessage(message, tone = "info") {
   target.textContent = message;
 }
 
-function requireLoginForPilotAction() {
-  if (localStorage.getItem(AUTH_TOKEN_KEY)) {
-    return true;
-  }
-  openAuthModal("login");
-  setAuthMessage("请先用管理员账号登录，再执行试点操作。", "error");
-  return false;
-}
-
 async function refreshPilotData() {
   await loadDashboardData();
-  await loadPilotEvents();
+  if (["super_admin", "director", "nurse"].includes(appState.currentUser?.role)) {
+    await loadPilotEvents();
+  } else {
+    aiEvents = [];
+  }
   renderBaseLists();
   renderTrackingList();
   refreshIcons();
@@ -933,20 +727,6 @@ function refreshIcons() {
   }
 }
 
-function bindNavigation() {
-  document.querySelectorAll(".nav-item").forEach((button) => {
-    button.addEventListener("click", () => {
-      const view = button.dataset.view;
-      const targetView = document.getElementById(view);
-      if (!targetView) return;
-      document.querySelectorAll(".nav-item").forEach((item) => item.classList.remove("active"));
-      document.querySelectorAll(".view").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      targetView.classList.add("active");
-    });
-  });
-}
-
 function bindVideoControls() {
   document.querySelectorAll("[data-grid-mode]").forEach((button) => {
     button.classList.toggle("active", Number(button.dataset.gridMode) === appState.gridMode);
@@ -956,53 +736,6 @@ function bindVideoControls() {
       button.classList.add("active");
       renderVideoWall();
     });
-  });
-}
-
-function bindRoleControls() {
-  document.querySelectorAll("[data-role]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.role === appState.role);
-    button.addEventListener("click", () => {
-      if (button.dataset.role === "admin" && appState.currentUser?.role !== "admin") {
-        openAuthModal("login");
-        setAuthMessage("需要管理员账号才能切换到管理员权限。", "error");
-        return;
-      }
-      appState.role = button.dataset.role === "admin" ? "admin" : "user";
-      document.querySelectorAll("[data-role]").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      renderPermissionList();
-      renderVideoWall();
-      refreshIcons();
-    });
-  });
-}
-
-function updateRoleControls() {
-  document.querySelectorAll("[data-role]").forEach((button) => {
-    const isAdminButton = button.dataset.role === "admin";
-    button.classList.toggle("active", button.dataset.role === appState.role);
-    button.disabled = isAdminButton && appState.currentUser?.role !== "admin";
-    button.title = button.disabled ? "请使用管理员账号登录" : "";
-  });
-}
-
-function bindAuthControls() {
-  document.getElementById("loginEntry")?.addEventListener("click", () => {
-    if (appState.currentUser) {
-      applySession(null);
-      return;
-    }
-    openAuthModal("login");
-  });
-  document.getElementById("registerEntry")?.addEventListener("click", () => openAuthModal("register"));
-  document.getElementById("authClose")?.addEventListener("click", closeAuthModal);
-  document.getElementById("authModal")?.addEventListener("click", (event) => {
-    if (event.target?.id === "authModal") closeAuthModal();
-  });
-  document.getElementById("authForm")?.addEventListener("submit", handleAuthSubmit);
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeAuthModal();
   });
 }
 
@@ -1026,26 +759,45 @@ function bindPilotActions() {
 function renderAuthStatus() {
   const status = document.getElementById("userStatus");
   const loginEntry = document.getElementById("loginEntry");
-  const registerEntry = document.getElementById("registerEntry");
-  if (!status || !loginEntry || !registerEntry) return;
+  if (!status || !loginEntry) return;
 
   if (!appState.currentUser) {
     status.innerHTML = `<i data-lucide="user-round"></i><span>未登录</span>`;
     loginEntry.innerHTML = `<i data-lucide="log-in"></i><span>登录</span>`;
-    registerEntry.style.display = "none";
     return;
   }
 
-  const roleName = appState.currentUser.roleName || appState.currentUser.role;
+  const roleName = rbac?.roles?.[appState.currentUser.role]?.name || appState.currentUser.role;
   const name = appState.currentUser.displayName || appState.currentUser.email;
   status.innerHTML = `<i data-lucide="user-check"></i><span>${escapeHtml(name)} · ${escapeHtml(roleName)}</span>`;
   loginEntry.innerHTML = `<i data-lucide="log-out"></i><span>退出</span>`;
-  registerEntry.style.display = "none";
+}
+
+function renderSummary() {
+  const summary = appState.summary;
+  const setText = (id, value) => {
+    const target = document.getElementById(id);
+    if (target) target.textContent = value;
+  };
+
+  setText("summaryResidentCount", summary ? String(summary.residentCount) : "--");
+  setText("summaryPendingTaskCount", summary ? String(summary.pendingTaskCount) : "--");
+  setText("summaryLiveAlertCount", summary ? String(summary.liveAlertCount) : "--");
+  setText("summaryOnlineDeviceCount", summary ? String(summary.onlineDeviceCount) : "--");
+  setText("summaryDeviceTotal", summary ? `共 ${summary.deviceCount} 台设备` : "共 -- 台设备");
 }
 
 async function restoreSession() {
+  const stored = authSession?.restore();
+  if (!stored) {
+    applySession(null);
+    return;
+  }
+
   try {
-    applySession(authSession?.restore() || null);
+    const result = await apiRequest("/auth/me");
+    authSession.save(result.user, stored.token);
+    applySession(result.user);
   } catch (error) {
     console.error("Session restore failed", error);
     authSession?.logout();
@@ -1053,21 +805,37 @@ async function restoreSession() {
   }
 }
 
-function handleLoginPageSubmit(event) {
+async function handleLoginPageSubmit(event) {
   event.preventDefault();
-  const email = document.getElementById("loginPageEmail")?.value || "";
+  const email = document.getElementById("loginPageEmail")?.value.trim().toLowerCase() || "";
   const password = document.getElementById("loginPagePassword")?.value || "";
-  const result = authSession?.login(email, password);
-
-  if (!result?.ok) {
-    setLoginPageMessage(result?.message || "登录失败，请检查账号和密码", "error");
+  if (!email || !password) {
+    setLoginPageMessage("请输入账号和密码", "error");
     return;
   }
 
-  setLoginPageMessage("");
-  applySession(result.user);
-  const landingView = rbac?.getLandingView(result.user) || "dashboard";
-  appState.router?.navigate(landingView);
+  try {
+    const result = await apiRequest("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password })
+    });
+    authSession.save(result.user, result.accessToken);
+    applySession(result.user);
+    setLoginPageMessage("");
+
+    if (result.user.role !== "visitor") {
+      try {
+        await refreshPilotData();
+      } catch (error) {
+        console.error("Initial database load failed", error);
+      }
+    }
+
+    const landingView = rbac?.getLandingView(result.user) || "dashboard";
+    appState.router?.navigate(landingView);
+  } catch (error) {
+    setLoginPageMessage(error.message || "登录失败，请检查账号和密码", "error");
+  }
 }
 
 function bindNavigation() {
@@ -1105,7 +873,6 @@ function bindAuthControls() {
     }
     appState.router?.navigate("login");
   });
-  document.getElementById("registerEntry")?.style.setProperty("display", "none");
 }
 
 function requireLoginForPilotAction() {
@@ -1134,8 +901,8 @@ function updateRoleControls() {
 
 async function bootApp() {
   try {
-    await loadDashboardData();
     renderBaseLists();
+    renderSummary();
     renderVideoWall();
     renderModelStack();
     renderLlmHealth();
@@ -1159,6 +926,13 @@ async function bootApp() {
       showLogin: showLoginPage
     });
     appState.router.start();
+    if (appState.currentUser && appState.currentUser.role !== "visitor") {
+      try {
+        await refreshPilotData();
+      } catch (error) {
+        console.error("Database-backed page load failed", error);
+      }
+    }
     updateRoleControls();
     refreshIcons();
   } catch (error) {

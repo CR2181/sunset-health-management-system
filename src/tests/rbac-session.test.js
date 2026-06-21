@@ -124,29 +124,22 @@ assert.ok(!canAccessRoute(rehab, "care-tasks"));
 assert.ok(!canAccessRoute(rehab, "settings"));
 
 const storage = createMemoryStorage();
-const session = createAuthSessionManager({ storage, accounts: demoAccounts });
+const session = createAuthSessionManager({ storage });
 
 assert.equal(session.restore(), null);
-const loginResult = session.login(family.email, family.password);
-assert.equal(loginResult.ok, true);
-assert.equal(loginResult.user.role, ROLE_KEYS.family);
-assert.deepEqual(loginResult.user.boundResidentCodes, ["RES-001"]);
-assert.equal(session.restore().email, family.email);
+session.save(
+  { email: family.email, role: ROLE_KEYS.family, residentCodes: ["RES-001"] },
+  "jwt-token",
+);
+assert.equal(session.restore().user.role, ROLE_KEYS.family);
+assert.equal(session.restore().token, "jwt-token");
+assert.deepEqual(session.restore().user.residentCodes, ["RES-001"]);
 session.logout();
 assert.equal(session.restore(), null);
 
-const failedLogin = session.login(family.email, "wrong-password");
-assert.equal(failedLogin.ok, false);
-assert.equal(failedLogin.code, "AUTH_INVALID_CREDENTIALS");
-
 const tamperedStorage = createMemoryStorage();
-tamperedStorage.setItem(
-  session.sessionKey,
-  JSON.stringify({ email: family.email, role: ROLE_KEYS.superAdmin, roleName: "超级管理员" })
-);
-const tamperResistantSession = createAuthSessionManager({ storage: tamperedStorage, accounts: demoAccounts });
-const restoredFamily = tamperResistantSession.restore();
-assert.equal(restoredFamily.role, ROLE_KEYS.family, "session restore must derive role from account config, not localStorage");
-assert.ok(!canAccessRoute(restoredFamily, "settings"));
+tamperedStorage.setItem(session.sessionKey, JSON.stringify({ user: { email: family.email }, token: "" }));
+const invalidSession = createAuthSessionManager({ storage: tamperedStorage });
+assert.equal(invalidSession.restore(), null);
 
 console.log("RBAC/session tests passed");

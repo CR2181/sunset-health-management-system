@@ -15,5 +15,9 @@ assert.ok(mainTs.includes("CORS_ORIGINS"), "backend CORS origins must be configu
 assert.ok(!mainTs.includes("origin: true"), "backend must not allow every CORS origin by reflection");
 assert.ok(authModuleTs.includes("NODE_ENV") && authModuleTs.includes("JWT_SECRET"), "JWT secret must be environment-aware");
 assert.ok(envExample.includes("CORS_ORIGINS="), ".env.example must document CORS_ORIGINS");
+assert.ok(
+  appJs.includes("APP_SHOW_DEMO_ACCOUNTS") && appJs.includes("window.location.hostname"),
+  "demo credentials must be hidden outside explicit local demo mode",
+);
 
 console.log("security hardening tests passed");
