@@ -22,7 +22,7 @@ export class DevicesController {
 
   @Patch(":id/heartbeat")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "device_manager")
+  @Roles("super_admin", "director")
   async heartbeat(@Param("id") id: string, @Body() dto: HeartbeatDeviceDto, @AuthUser() actor: RequestUser) {
     const device = await this.devicesService.heartbeat(id, dto);
     await this.auditService.record({

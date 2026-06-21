@@ -23,7 +23,7 @@ export class ResidentsController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "nurse")
+  @Roles("super_admin", "director", "nurse")
   async create(@Body() dto: CreateResidentDto, @AuthUser() actor: RequestUser) {
     const resident = await this.residentsService.create(dto);
     await this.auditService.record({
@@ -38,7 +38,7 @@ export class ResidentsController {
 
   @Patch(":id")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "nurse")
+  @Roles("super_admin", "director", "nurse")
   async update(@Param("id") id: string, @Body() dto: UpdateResidentDto, @AuthUser() actor: RequestUser) {
     const resident = await this.residentsService.update(id, dto);
     await this.auditService.record({

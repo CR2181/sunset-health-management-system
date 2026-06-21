@@ -23,7 +23,7 @@ export class AlertsController {
 
   @Patch(":id/ack")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "nurse", "caregiver")
+  @Roles("super_admin", "director", "nurse")
   async acknowledge(@Param("id") id: string, @Body() dto: AckAlertDto, @AuthUser() actor: RequestUser) {
     const alert = await this.alertsService.acknowledge(id, dto);
     await this.auditService.record({
@@ -38,7 +38,7 @@ export class AlertsController {
 
   @Patch(":id/resolve")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "nurse", "caregiver")
+  @Roles("super_admin", "director", "nurse")
   async resolve(@Param("id") id: string, @Body() dto: ResolveAlertDto, @AuthUser() actor: RequestUser) {
     const alert = await this.alertsService.resolve(id, dto);
     await this.auditService.record({
@@ -53,7 +53,7 @@ export class AlertsController {
 
   @Patch(":id/false-positive")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "nurse")
+  @Roles("super_admin", "director", "nurse")
   async markFalsePositive(@Param("id") id: string, @Body() dto: ResolveAlertDto, @AuthUser() actor: RequestUser) {
     const alert = await this.alertsService.markFalsePositive(id, dto);
     await this.auditService.record({

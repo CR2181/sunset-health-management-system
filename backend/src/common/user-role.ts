@@ -1,7 +1,18 @@
-export type UserRole = "admin" | "manager" | "nurse" | "caregiver" | "device_manager" | "family" | "user";
+export const USER_ROLES = [
+  "super_admin",
+  "director",
+  "nurse",
+  "rehab",
+  "family",
+  "visitor",
+] as const;
+
+export type UserRole = (typeof USER_ROLES)[number];
 
 export interface RequestUser {
   id: string;
   email: string;
   role: UserRole;
+  displayName?: string;
+  residentCodes: string[];
 }

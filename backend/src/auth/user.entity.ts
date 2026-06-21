@@ -12,7 +12,13 @@ export class User {
   @Column({ name: "password_hash" })
   passwordHash: string;
 
-  @Column({ default: "user" })
+  @Column({ name: "display_name", nullable: true })
+  displayName?: string;
+
+  @Column({ name: "resident_codes", type: "simple-json", nullable: true })
+  residentCodes?: string[];
+
+  @Column({ default: "visitor" })
   role: UserRole;
 
   @CreateDateColumn({ name: "created_at" })

@@ -99,7 +99,7 @@ export class SeedService implements OnModuleInit {
         this.users.create({
           email: adminEmail,
           passwordHash: await bcrypt.hash("admin123", 10),
-          role: "admin"
+          role: "super_admin"
         })
       );
     }

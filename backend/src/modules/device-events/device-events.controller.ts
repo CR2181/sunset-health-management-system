@@ -22,7 +22,7 @@ export class DeviceEventsController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "device_manager")
+  @Roles("super_admin", "director")
   async create(@Body() dto: CreateDeviceEventDto, @AuthUser() actor: RequestUser) {
     const event = await this.deviceEventsService.create(dto);
     await this.auditService.record({

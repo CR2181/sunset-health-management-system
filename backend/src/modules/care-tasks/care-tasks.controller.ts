@@ -22,7 +22,7 @@ export class CareTasksController {
 
   @Patch(":id/status")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "nurse", "caregiver")
+  @Roles("super_admin", "director", "nurse")
   async updateStatus(@Param("id") id: string, @Body() dto: UpdateCareTaskStatusDto, @AuthUser() actor: RequestUser) {
     const task = await this.careTasksService.updateStatus(id, dto);
     await this.auditService.record({
