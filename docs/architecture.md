@@ -268,3 +268,32 @@ Production rule: do not display account passwords on the login page in a real de
 ### Data Privacy Rule
 
 Family users can only see their bound resident summary in the frontend MVP. Third-party or visitor users can only see authorized demo data. The backend must enforce the same data scope before production rollout.
+
+## 30-Bed Pilot Delivery Addendum
+
+The implemented pilot keeps the approved stack and adds no frontend framework or infrastructure platform.
+
+### Canonical Backend Roles
+
+```text
+super_admin / director / nurse / rehab / family / visitor
+```
+
+Legacy role values are migrated on startup with an idempotent, parameterized TypeORM update. JWT payloads contain the role, display name, and authorized resident codes. Backend services use those resident codes for reads and writes; frontend menu filtering is not treated as a security boundary.
+
+### Database-Only Business Data
+
+Residents, care tasks, alerts, devices, cameras, dashboard summaries, AI events, and audit logs come from NestJS APIs backed by TypeORM. If the API or database is unavailable, the frontend shows a service error and does not substitute local business arrays.
+
+### Implemented Core Routes
+
+```text
+/dashboard /residents /care-tasks /safety-alerts /alert-records
+/devices /audit-logs /family /rehab /reports /settings /integrations /demo
+```
+
+Each visible route has a unique menu key, path, title, breadcrumb, and one active menu result. Undeveloped modules retain an independent placeholder instead of redirecting to another business page.
+
+### Audit Boundary
+
+The database audit trail records login success/failure and state-changing resident, task, alert, device, device-event, AI-event, and audit-read actions. Passwords and JWT values must never be included in audit metadata.

@@ -114,7 +114,6 @@ GET /api/health
 
 ```text
 POST /api/auth/login
-POST /api/auth/register
 GET  /api/auth/me
 ```
 
@@ -122,36 +121,31 @@ GET  /api/auth/me
 
 ```text
 GET    /api/residents
-GET    /api/residents/:id
 POST   /api/residents
 PATCH  /api/residents/:id
-DELETE /api/residents/:id
 ```
 
 ### 护理任务
 
 ```text
 GET   /api/care-tasks
-POST  /api/care-tasks
 PATCH /api/care-tasks/:id/status
 ```
 
 ### 告警中心
 
 ```text
-GET   /api/alerts
-POST  /api/alerts
+GET   /api/alerts?mode=live|history
 PATCH /api/alerts/:id/ack
 PATCH /api/alerts/:id/resolve
+PATCH /api/alerts/:id/false-positive
 ```
 
 ### 设备台账
 
 ```text
 GET   /api/devices
-POST  /api/devices
-PATCH /api/devices/:id
-POST  /api/devices/:id/heartbeat
+PATCH /api/devices/:id/heartbeat
 ```
 
 ### 设备事件
@@ -165,7 +159,6 @@ GET  /api/device-events
 
 ```text
 GET  /api/cameras
-POST /api/cameras
 ```
 
 ### AI 事件
@@ -173,6 +166,14 @@ POST /api/cameras
 ```text
 POST /api/ai-events
 GET  /api/ai-events
+PATCH /api/ai-events/:id/review
+
+### 工作台与审计
+
+```text
+GET /api/dashboard/data
+GET /api/audit-logs
+```
 ```
 
 ## 版本管理
@@ -186,10 +187,16 @@ MVP 阶段暂不启用 `/api/v1`，但接口一旦给外部设备或家属端使
 
 ## 安全要求
 
-- 登录后接口使用 `Authorization: Bearer <token>`。
+- 除健康检查和登录外，接口使用 `Authorization: Bearer <token>`。
 - 家属端接口必须按授权老人过滤数据。
-- 设备上报接口必须有设备密钥或签名机制。
+- 当前设备与 AI 写接口只允许试点管理角色；正式设备上报必须增加设备密钥或签名机制。
 - RTSP 原始地址只允许管理员查看。
+
+后端统一角色代码：
+
+```text
+super_admin / director / nurse / rehab / family / visitor
+```
 
 ## 试点产品接口补充
 

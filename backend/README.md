@@ -68,15 +68,15 @@ The frontend is served by the NestJS app, and API routes are under:
 http://127.0.0.1:3000/api
 ```
 
-## Default Account
+## Local Pilot Accounts
 
 ```text
-email: admin@yian.local
+email: superadmin@yian.local
 password: admin123
-role: admin
+role: super_admin
 ```
 
-The first startup seeds demo data for residents, care tasks, alerts, camera streams, family feedback, and standard scores.
+The first startup seeds six local pilot roles and 30 synthetic residents with related tasks, alerts, devices, and camera ledgers. These credentials are local trial data only and must be replaced before a real deployment.
 
 ## Switch To MySQL
 
@@ -101,15 +101,18 @@ DB_DATABASE=sunset_health
 
 ```text
 POST /api/auth/login
-POST /api/auth/register
 GET  /api/auth/me
 GET  /api/dashboard/data
 GET  /api/residents
 GET  /api/care-tasks
 GET  /api/alerts
 GET  /api/cameras
+GET  /api/devices
+GET  /api/audit-logs
 ```
 
 ## Production Notes
 
-For production, set `DB_SYNC=false`, use migrations, replace `JWT_SECRET`, and use a managed PostgreSQL/MySQL instance with backups enabled.
+For production, set `DB_SYNC=false`, use migrations, replace `JWT_SECRET` and all pilot passwords, disable demo-account display, add HTTPS and gateway rate limiting, and use a managed PostgreSQL/MySQL instance with tested backups.
+
+The complete local deployment, backup, acceptance, training, privacy, and demo instructions are under `docs/delivery/`.
