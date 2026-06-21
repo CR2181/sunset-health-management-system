@@ -18,6 +18,9 @@ assert.ok(app.includes("数据库服务暂不可用"));
 assert.ok(!session.includes("account.password"));
 assert.ok(!html.includes('id="authModal"'));
 assert.ok(!html.includes('id="registerEntry"'));
+for (const fakeMetric of ["99.3%", "97.8%", "99.91%", "今日 1,248 项任务"]) {
+  assert.ok(!html.includes(fakeMetric), `hardcoded operational metric must be removed: ${fakeMetric}`);
+}
 
 for (const viewId of ["residents", "care", "safety", "alert-records", "devices", "audit-logs"]) {
   assert.ok(html.includes(`id="${viewId}"`), `${viewId} requires a distinct page`);

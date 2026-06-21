@@ -834,6 +834,13 @@ function renderSummary() {
   setText("summaryLiveAlertCount", summary ? String(summary.liveAlertCount) : "--");
   setText("summaryOnlineDeviceCount", summary ? String(summary.onlineDeviceCount) : "--");
   setText("summaryDeviceTotal", summary ? `共 ${summary.deviceCount} 台设备` : "共 -- 台设备");
+  setText("sidebarResidentCount", summary ? String(summary.residentCount) : "--");
+  setText(
+    "sidebarDeviceOnline",
+    summary?.deviceCount > 0
+      ? `${Math.round((summary.onlineDeviceCount / summary.deviceCount) * 100)}%`
+      : "--",
+  );
 }
 
 function renderRouteCollections() {
