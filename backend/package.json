@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test:access": "npm run build && node test/access-policy.test.js",
+    "test:fixtures": "npm run build && node test/pilot-fixtures.test.js",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "service:start": "powershell -ExecutionPolicy Bypass -File ./scripts/start-service.ps1",
