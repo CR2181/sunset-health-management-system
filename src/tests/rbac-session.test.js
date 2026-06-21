@@ -115,10 +115,12 @@ const nurse = demoAccounts.find((account) => account.role === ROLE_KEYS.nurse);
 const rehab = demoAccounts.find((account) => account.role === ROLE_KEYS.rehab);
 
 assert.ok(canAccessRoute(director, "reports"));
+assert.ok(canAccessRoute(director, "audit-logs"));
 assert.ok(!canAccessRoute(director, "settings"));
 assert.ok(canAccessRoute(nurse, "care-tasks"));
 assert.ok(canAccessRoute(nurse, "alert-records"));
 assert.ok(!canAccessRoute(nurse, "reports"));
+assert.ok(!canAccessRoute(nurse, "audit-logs"));
 assert.ok(canAccessRoute(rehab, "rehab"));
 assert.ok(!canAccessRoute(rehab, "care-tasks"));
 assert.ok(!canAccessRoute(rehab, "settings"));

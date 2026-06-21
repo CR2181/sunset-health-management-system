@@ -677,7 +677,9 @@ h3 {
 .resident-list,
 .task-list,
 .alert-feed,
-.feedback-list {
+.feedback-list,
+.device-ledger,
+.audit-list {
   display: grid;
   gap: 10px;
 }
@@ -694,6 +696,37 @@ h3 {
   background: rgba(255, 255, 255, 0.74);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   transition: transform var(--motion), border-color var(--motion), background var(--motion), box-shadow var(--motion);
+}
+
+.audit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  border-bottom: 1px solid var(--line);
+  padding: 12px 2px;
+}
+
+.audit-row:first-child {
+  padding-top: 2px;
+}
+
+.audit-row strong,
+.audit-row span,
+.audit-row small {
+  display: block;
+}
+
+.audit-row span,
+.audit-row small,
+.audit-row time,
+.integration-item small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.audit-row time {
+  white-space: nowrap;
 }
 
 .resident-item:hover,

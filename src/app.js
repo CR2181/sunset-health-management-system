@@ -20,6 +20,7 @@ let alerts = [];
 let rtspStreams = [];
 let devices = [];
 let aiEvents = [];
+let auditLogs = [];
 
 const modelStack = [
   { version: "YOLOv12", scene: "跌倒、越界、异常姿态", latency: "38ms", status: "主模型", score: 96 },
@@ -180,6 +181,14 @@ function showProtectedView(view) {
     item.classList.toggle("active", Boolean(activeMenuKey) && item.dataset.menuKey === activeMenuKey);
   });
   renderRoutePage(route || fallbackRoute);
+  if (route) {
+    loadRouteData(route.key).catch((error) => {
+      console.error(`Route data load failed: ${route.key}`, error);
+      if (error.status !== 401 && error.status !== 403) {
+        showPilotMessage("数据库服务暂不可用，请稍后重试。", "error");
+      }
+    });
+  }
   refreshIcons();
 }
 
@@ -314,6 +323,39 @@ async function loadDashboardData() {
 
 async function loadPilotEvents() {
   aiEvents = await apiRequest("/ai-events");
+}
+
+const pageLoaders = {
+  residents: () => apiRequest("/residents"),
+  "care-tasks": () => apiRequest("/care-tasks"),
+  "safety-alerts": () => apiRequest("/alerts?mode=live"),
+  "alert-records": () => apiRequest("/alerts?mode=history"),
+  devices: () => Promise.all([apiRequest("/devices"), apiRequest("/cameras")]),
+  "audit-logs": () => apiRequest("/audit-logs"),
+};
+
+async function loadRouteData(routeKey) {
+  if (routeKey === "dashboard" || routeKey === "family") {
+    await loadDashboardData();
+    renderBaseLists();
+    renderSummary();
+    return;
+  }
+
+  const loader = pageLoaders[routeKey];
+  if (!loader) return;
+  const data = await loader();
+
+  if (routeKey === "residents") residents = data;
+  if (routeKey === "care-tasks") tasks = data;
+  if (routeKey === "safety-alerts" || routeKey === "alert-records") alerts = data;
+  if (routeKey === "devices") {
+    [devices, rtspStreams] = data;
+  }
+  if (routeKey === "audit-logs") auditLogs = data;
+
+  renderRouteCollections();
+  refreshIcons();
 }
 
 function renderList(id, items, renderer, emptyText = "暂无数据") {
@@ -499,6 +541,11 @@ function renderStabilityList() {
 }
 
 function renderBaseLists() {
+  const canManageResidents = rbac?.hasPermission(appState.currentUser, rbac.PERMISSIONS.residentManage);
+  const canManageCare = rbac?.hasPermission(appState.currentUser, rbac.PERMISSIONS.careManage);
+  const canHandleAlerts = rbac?.hasPermission(appState.currentUser, rbac.PERMISSIONS.alertHandle);
+  const canManageDevices = rbac?.hasPermission(appState.currentUser, rbac.PERMISSIONS.deviceManage);
+
   renderList("residentList", residents, (item) => `
     <article class="resident-item">
       <div class="avatar">${escapeHtml(item.name.slice(0, 1))}</div>
@@ -506,7 +553,7 @@ function renderBaseLists() {
         <div class="item-title">${escapeHtml(item.name)} · ${escapeHtml(item.age)} 岁</div>
         <div class="item-meta">${escapeHtml(item.room)} · ${escapeHtml(item.detail)}</div>
         <div class="item-meta">${escapeHtml(item.careLevel || "护理等级待补充")} · ${escapeHtml(item.familyContactName || "家属联系人待补充")}</div>
-        ${item.id ? `
+        ${canManageResidents && item.id ? `
           <div class="item-actions">
             <button class="mini-action" data-pilot-action="resident-update" data-id="${escapeHtml(item.id)}" type="button">补充档案</button>
           </div>
@@ -537,9 +584,9 @@ function renderBaseLists() {
         <span>${escapeHtml(item.state)}</span>
         ${item.kind === "device" ? `
           <small class="device-status-line">电量 ${escapeHtml(item.batteryLevel ?? "待上报")} · ${escapeHtml(item.lastHeartbeatAt || "暂无心跳")}</small>
-          <div class="item-actions">
+          ${canManageDevices ? `<div class="item-actions">
             <button class="mini-action" data-pilot-action="device-heartbeat" data-id="${escapeHtml(item.id)}" type="button">上报心跳</button>
-          </div>
+          </div>` : ""}
         ` : ""}
       </div>
     </article>
@@ -550,7 +597,7 @@ function renderBaseLists() {
       <div>
         <div class="item-title">${escapeHtml(item.title)}</div>
         <div class="item-meta">${escapeHtml(item.meta)}</div>
-        ${item.id ? `
+        ${canManageCare && item.id ? `
           <div class="item-actions">
             <button class="mini-action" data-pilot-action="task-progress" data-id="${escapeHtml(item.id)}" type="button">开始处理</button>
             <button class="mini-action" data-pilot-action="task-complete" data-id="${escapeHtml(item.id)}" type="button">完成</button>
@@ -566,7 +613,7 @@ function renderBaseLists() {
       <div>
         <div class="item-title">${escapeHtml(item.title)}</div>
         <div class="item-meta">${escapeHtml(item.meta)}</div>
-        ${item.id ? `
+        ${canHandleAlerts && item.id ? `
           <div class="item-actions">
             <button class="mini-action" data-pilot-action="alert-ack" data-id="${escapeHtml(item.id)}" type="button">确认</button>
             <button class="mini-action" data-pilot-action="alert-resolve" data-id="${escapeHtml(item.id)}" type="button">解决</button>
@@ -622,6 +669,7 @@ async function refreshPilotData() {
     aiEvents = [];
   }
   renderBaseLists();
+  renderRouteCollections();
   renderTrackingList();
   refreshIcons();
 }
@@ -787,6 +835,69 @@ function renderSummary() {
   setText("summaryDeviceTotal", summary ? `共 ${summary.deviceCount} 台设备` : "共 -- 台设备");
 }
 
+function renderRouteCollections() {
+  const canManageResidents = rbac?.hasPermission(appState.currentUser, rbac.PERMISSIONS.residentManage);
+  const canManageDevices = rbac?.hasPermission(appState.currentUser, rbac.PERMISSIONS.deviceManage);
+
+  renderList("residentDirectoryList", residents, (item) => `
+    <article class="resident-item">
+      <div class="avatar">${escapeHtml(item.name?.slice(0, 1) || "老")}</div>
+      <div>
+        <div class="item-title">${escapeHtml(item.name)} · ${escapeHtml(item.age)} 岁</div>
+        <div class="item-meta">${escapeHtml(item.businessCode)} · ${escapeHtml(item.room)} · ${escapeHtml(item.careLevel || "护理等级未设置")}</div>
+        <div class="item-meta">${escapeHtml(item.detail)}</div>
+        ${canManageResidents && item.id ? `<button class="mini-action" data-pilot-action="resident-update" data-id="${escapeHtml(item.id)}" type="button">更新档案</button>` : ""}
+      </div>
+      <span class="risk-tag">${escapeHtml(item.risk)}</span>
+    </article>
+  `, "当前账号没有获授权的老人档案");
+
+  renderList("alertRecordList", alerts, (item) => `
+    <article class="alert-item ${safeClass(item.level)}">
+      <div>
+        <div class="item-title">${escapeHtml(item.title)}</div>
+        <div class="item-meta">${escapeHtml(item.businessCode)} · ${escapeHtml(item.meta)}</div>
+        <div class="item-meta">处置说明：${escapeHtml(item.resolutionNote || "暂无")}</div>
+      </div>
+      <span class="task-state ${item.status === "resolved" ? "done" : "doing"}">${escapeHtml(item.state)}</span>
+    </article>
+  `, "暂无历史告警记录");
+
+  renderList("deviceLedgerList", devices, (item) => `
+    <article class="integration-item">
+      <i data-lucide="${item.status === "online" ? "radio-tower" : "triangle-alert"}"></i>
+      <div>
+        <strong>${escapeHtml(item.name)}</strong>
+        <span>${escapeHtml(item.businessCode)} · ${escapeHtml(item.type)} · ${escapeHtml(item.location)}</span>
+        <small>状态 ${escapeHtml(item.status)} · 电量 ${escapeHtml(item.batteryLevel ?? "未上报")}% · 绑定 ${escapeHtml(item.boundResidentCode || "公共区域")}</small>
+        ${canManageDevices && item.id ? `<button class="mini-action" data-pilot-action="device-heartbeat" data-id="${escapeHtml(item.id)}" type="button">上报心跳</button>` : ""}
+      </div>
+    </article>
+  `, "暂无设备台账");
+
+  renderList("cameraLedgerList", rtspStreams, (item) => `
+    <article class="integration-item">
+      <i data-lucide="cctv"></i>
+      <div>
+        <strong>${escapeHtml(item.name)}</strong>
+        <span>${escapeHtml(item.businessCode)} · ${escapeHtml(item.status)} · ${escapeHtml(item.behavior)}</span>
+        <small>${escapeHtml(item.model)} · ${escapeHtml(item.fps)} FPS</small>
+      </div>
+    </article>
+  `, "暂无摄像头台账");
+
+  renderList("auditLogList", auditLogs, (item) => `
+    <article class="audit-row">
+      <div>
+        <strong>${escapeHtml(item.action)}</strong>
+        <span>${escapeHtml(item.summary || "无摘要")}</span>
+        <small>${escapeHtml(item.operatorEmail || "系统")} · ${escapeHtml(item.operatorRole || "system")} · ${escapeHtml(item.resourceType)}</small>
+      </div>
+      <time>${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString("zh-CN") : "")}</time>
+    </article>
+  `, "暂无审计日志");
+}
+
 async function restoreSession() {
   const stored = authSession?.restore();
   if (!stored) {
@@ -822,14 +933,6 @@ async function handleLoginPageSubmit(event) {
     authSession.save(result.user, result.accessToken);
     applySession(result.user);
     setLoginPageMessage("");
-
-    if (result.user.role !== "visitor") {
-      try {
-        await refreshPilotData();
-      } catch (error) {
-        console.error("Initial database load failed", error);
-      }
-    }
 
     const landingView = rbac?.getLandingView(result.user) || "dashboard";
     appState.router?.navigate(landingView);
@@ -926,13 +1029,6 @@ async function bootApp() {
       showLogin: showLoginPage
     });
     appState.router.start();
-    if (appState.currentUser && appState.currentUser.role !== "visitor") {
-      try {
-        await refreshPilotData();
-      } catch (error) {
-        console.error("Database-backed page load failed", error);
-      }
-    }
     updateRoleControls();
     refreshIcons();
   } catch (error) {

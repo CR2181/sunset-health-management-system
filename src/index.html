@@ -181,6 +181,19 @@
           </section>
         </section>
 
+        <section class="view" id="residents" aria-label="老人档案">
+          <section class="panel full">
+            <div class="panel-head">
+              <div>
+                <h2>老人档案</h2>
+                <p>仅展示当前账号获授权的老人、床位、护理等级和风险摘要</p>
+              </div>
+              <span class="badge info">数据库档案</span>
+            </div>
+            <div class="resident-list" id="residentDirectoryList"></div>
+          </section>
+        </section>
+
         <section class="view" id="care" aria-label="照护闭环">
           <div class="grid-two">
             <section class="panel">
@@ -243,6 +256,43 @@
                 <div><i data-lucide="camera"></i><strong>0</strong><span>私密区拍摄点</span></div>
                 <div><i data-lucide="shield-check"></i><strong>96.2%</strong><span>预警准确率</span></div>
               </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="alert-records" aria-label="告警记录">
+          <section class="panel full">
+            <div class="panel-head">
+              <div>
+                <h2>历史告警记录</h2>
+                <p>用于查询已确认、已解决和误报记录，不承担实时处置</p>
+              </div>
+              <span class="badge info">历史追溯</span>
+            </div>
+            <div class="alert-feed" id="alertRecordList"></div>
+          </section>
+        </section>
+
+        <section class="view" id="devices" aria-label="设备管理">
+          <div class="grid-two">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>设备台账</h2>
+                  <p>呼叫器、床垫、穿戴设备和传感器的在线状态</p>
+                </div>
+                <span class="badge info">数据库设备</span>
+              </div>
+              <div class="device-ledger" id="deviceLedgerList"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>摄像头台账</h2>
+                  <p>仅展示试点公共区域和接口预留状态，不播放真实视频</p>
+                </div>
+              </div>
+              <div class="device-ledger" id="cameraLedgerList"></div>
             </section>
           </div>
         </section>
@@ -420,6 +470,19 @@
               <div class="module-action-list" id="moduleActions"></div>
             </section>
           </div>
+        </section>
+
+        <section class="view" id="audit-logs" aria-label="审计日志">
+          <section class="panel full">
+            <div class="panel-head">
+              <div>
+                <h2>审计日志</h2>
+                <p>追踪登录、档案、护理、告警、设备和审计查询操作</p>
+              </div>
+              <span class="badge success">只读追溯</span>
+            </div>
+            <div class="audit-list" id="auditLogList"></div>
+          </section>
         </section>
 
         <section class="view fallback-view" id="no-permission" aria-label="无权限访问">
