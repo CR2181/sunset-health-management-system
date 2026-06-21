@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcryptjs";
 import { DeepPartial, Repository } from "typeorm";
 import { User } from "../auth/user.entity";
+import { LEGACY_ROLE_MAPPINGS } from "../common/access-policy";
 import { AlertEvent } from "../modules/alerts/alert-event.entity";
 import { CameraStream } from "../modules/cameras/camera-stream.entity";
 import { CareTask } from "../modules/care-tasks/care-task.entity";
@@ -91,6 +92,15 @@ export class SeedService implements OnModuleInit {
   }
 
   private async seedUsers() {
+    for (const [legacyRole, role] of Object.entries(LEGACY_ROLE_MAPPINGS)) {
+      await this.users
+        .createQueryBuilder()
+        .update(User)
+        .set({ role })
+        .where("role = :legacyRole", { legacyRole })
+        .execute();
+    }
+
     const adminEmail = "admin@yian.local";
     const exists = await this.users.exists({ where: { email: adminEmail } });
 

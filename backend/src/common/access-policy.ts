@@ -2,6 +2,14 @@ import { RequestUser, UserRole } from "./user-role";
 
 export { USER_ROLES } from "./user-role";
 
+export const LEGACY_ROLE_MAPPINGS = Object.freeze({
+  admin: "super_admin",
+  manager: "director",
+  caregiver: "nurse",
+  device_manager: "super_admin",
+  user: "visitor",
+} as const satisfies Readonly<Record<string, UserRole>>);
+
 export function canReadAuditLogs(role: UserRole): boolean {
   return role === "super_admin" || role === "director";
 }
