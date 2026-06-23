@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcryptjs";
 import { DeepPartial, Repository } from "typeorm";
 import { User } from "../auth/user.entity";
+import { UserRole } from "../common/user-role";
 import { AlertEvent } from "../modules/alerts/alert-event.entity";
 import { CameraStream } from "../modules/cameras/camera-stream.entity";
 import { CareTask } from "../modules/care-tasks/care-task.entity";
@@ -91,22 +92,35 @@ export class SeedService implements OnModuleInit {
   }
 
   private async seedUsers() {
-    const accounts = [
-      { email: "admin@yian.local", password: "admin123", role: "admin" as const },
-      { email: "director@yian.local", password: "director123", role: "manager" as const },
-      { email: "nurse@yian.local", password: "nurse123", role: "nurse" as const },
-      { email: "rehab@yian.local", password: "rehab123", role: "caregiver" as const },
-      { email: "family@yian.local", password: "family123", role: "family" as const },
-      { email: "visitor@yian.local", password: "visitor123", role: "user" as const }
+    const accounts: Array<{
+      email: string;
+      password: string;
+      role: UserRole;
+      assignedResidentCodes?: string[];
+      boundResidentCodes?: string[];
+    }> = [
+      { email: "admin@yian.local", password: "admin123", role: "admin" },
+      { email: "director@yian.local", password: "director123", role: "manager" },
+      { email: "nurse@yian.local", password: "nurse123", role: "nurse", assignedResidentCodes: ["RES-001", "RES-002"] },
+      { email: "rehab@yian.local", password: "rehab123", role: "caregiver", assignedResidentCodes: ["RES-002"] },
+      { email: "family@yian.local", password: "family123", role: "family", boundResidentCodes: ["RES-001"] },
+      { email: "visitor@yian.local", password: "visitor123", role: "user" }
     ];
 
     for (const account of accounts) {
-      const exists = await this.users.exists({ where: { email: account.email } });
-      if (exists) continue;
+      const existing = await this.users.findOne({ where: { email: account.email } });
+      if (existing) {
+        existing.assignedResidentCodes = account.assignedResidentCodes;
+        existing.boundResidentCodes = account.boundResidentCodes;
+        await this.users.save(existing);
+        continue;
+      }
       await this.users.save(this.users.create({
         email: account.email,
         passwordHash: await bcrypt.hash(account.password, 10),
-        role: account.role
+        role: account.role,
+        assignedResidentCodes: account.assignedResidentCodes,
+        boundResidentCodes: account.boundResidentCodes
       }));
     }
   }
