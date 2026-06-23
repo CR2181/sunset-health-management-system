@@ -3,7 +3,8 @@ const appState = {
   role: "visitor",
   authMode: "login",
   currentUser: null,
-  router: null
+  router: null,
+  rehabTab: "tasks"
 };
 
 const AUTH_USERS_KEY = "yian-auth-users";
@@ -61,6 +62,8 @@ let rtspStreams = [
 let devices = [];
 let aiEvents = [];
 let auditLogs = [];
+let rehabTasks = [];
+let rehabPlans = [];
 
 const modelStack = [
   { version: "YOLOv12", scene: "跌倒、越界、异常姿态", latency: "38ms", status: "主模型", score: 96 },
@@ -268,6 +271,9 @@ function getDynamicPageData() {
     devices,
     aiEvents,
     auditLogs,
+    rehabTasks,
+    rehabPlans,
+    rehabTab: appState.rehabTab,
     feedback,
     standards
   };
@@ -368,10 +374,17 @@ async function loadCameraData() {
   }
 }
 
+async function loadRehabTabData() {
+  if (!window.YianApi?.getToken()) return;
+  if (appState.rehabTab === "plans") rehabPlans = await apiRequest("/rehab-plans");
+  else rehabTasks = await apiRequest("/rehab-tasks");
+}
+
 async function hydrateDynamicPage(route) {
   if (route?.key === "cameras") await loadCameraData();
   if (route?.key === "aiEvents") await loadPilotEvents();
   if (route?.key === "auditLogs") await loadAuditLogs();
+  if (route?.key === "rehab") await loadRehabTabData();
   renderDynamicPage(route);
 }
 
@@ -1018,6 +1031,34 @@ function openCareTaskForm(task) {
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function openRehabTaskForm(task) {
+  const form = document.getElementById("rehabTaskForm");
+  if (!form) return;
+  form.reset();
+  ["id", "residentCode", "planCode", "title", "scheduledDate", "operatorName", "description"].forEach((name) => {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = task?.[name] ?? "";
+  });
+  const title = document.getElementById("rehabTaskFormTitle");
+  if (title) title.textContent = task ? "编辑康复任务" : "新增康复任务";
+  form.classList.remove("hidden");
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function openRehabPlanForm(plan) {
+  const form = document.getElementById("rehabPlanForm");
+  if (!form) return;
+  form.reset();
+  ["id", "residentCode", "title", "startDate", "endDate", "frequency", "goal", "riskNote"].forEach((name) => {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = plan?.[name] ?? "";
+  });
+  const title = document.getElementById("rehabPlanFormTitle");
+  if (title) title.textContent = plan ? "编辑康复计划" : "新增康复计划";
+  form.classList.remove("hidden");
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 async function handleUiAction(action, target) {
   const messages = {
     search: ["全局搜索", "/api/search"],
@@ -1074,6 +1115,61 @@ async function handleUiAction(action, target) {
   }
   if (action === "care-task-form-close") {
     document.getElementById("careTaskForm")?.classList.add("hidden");
+    return;
+  }
+  if (action === "rehab-tab") {
+    appState.rehabTab = target.dataset.tab === "plans" ? "plans" : "tasks";
+    await loadRehabTabData();
+    renderDynamicPage(currentRoute());
+    return;
+  }
+  if (action === "rehab-task-create") {
+    openRehabTaskForm(null);
+    return;
+  }
+  if (action === "rehab-task-edit") {
+    const task = rehabTasks.find((item) => String(item.id) === String(target.dataset.id));
+    if (!task) throw new Error("未找到需要编辑的康复任务。");
+    openRehabTaskForm(task);
+    return;
+  }
+  if (action === "rehab-plan-create") {
+    openRehabPlanForm(null);
+    return;
+  }
+  if (action === "rehab-plan-edit") {
+    const plan = rehabPlans.find((item) => String(item.id) === String(target.dataset.id));
+    if (!plan) throw new Error("未找到需要编辑的康复计划。");
+    openRehabPlanForm(plan);
+    return;
+  }
+  if (action === "rehab-form-close") {
+    document.getElementById("rehabTaskForm")?.classList.add("hidden");
+    document.getElementById("rehabPlanForm")?.classList.add("hidden");
+    return;
+  }
+  if (action === "rehab-task-status") {
+    await apiRequest(`/rehab-tasks/${target.dataset.id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        status: target.dataset.status,
+        operatorName: appState.currentUser?.displayName || appState.currentUser?.email,
+        note: "管理端状态更新"
+      })
+    });
+    await loadRehabTabData();
+    renderDynamicPage(currentRoute());
+    showPilotMessage("康复任务状态已保存。", "success");
+    return;
+  }
+  if (action === "rehab-plan-status") {
+    await apiRequest(`/rehab-plans/${target.dataset.id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: target.dataset.status })
+    });
+    await loadRehabTabData();
+    renderDynamicPage(currentRoute());
+    showPilotMessage("康复计划状态已保存。", "success");
     return;
   }
   if (action === "camera-create") {
@@ -1207,6 +1303,57 @@ function bindPageActions() {
         showPilotMessage(id ? "护理任务已保存。" : "护理任务已新增。", "success");
       } catch (error) {
         showPilotMessage(error.message || "护理任务保存失败。", "error");
+      } finally {
+        if (submit) submit.disabled = false;
+      }
+      return;
+    }
+    if (event.target.id === "rehabTaskForm") {
+      event.preventDefault();
+      const form = event.target;
+      const submit = form.querySelector('[type="submit"]');
+      if (submit) submit.disabled = true;
+      try {
+        const values = new FormData(form);
+        const id = values.get("id");
+        const payload = Object.fromEntries(values.entries());
+        delete payload.id;
+        await apiRequest(id ? `/rehab-tasks/${id}` : "/rehab-tasks", {
+          method: id ? "PATCH" : "POST",
+          body: JSON.stringify(payload)
+        });
+        form.classList.add("hidden");
+        await loadRehabTabData();
+        renderDynamicPage(currentRoute());
+        showPilotMessage(id ? "康复任务已保存。" : "康复任务已新增。", "success");
+      } catch (error) {
+        showPilotMessage(error.message || "康复任务保存失败。", "error");
+      } finally {
+        if (submit) submit.disabled = false;
+      }
+      return;
+    }
+    if (event.target.id === "rehabPlanForm") {
+      event.preventDefault();
+      const form = event.target;
+      const submit = form.querySelector('[type="submit"]');
+      if (submit) submit.disabled = true;
+      try {
+        const values = new FormData(form);
+        const id = values.get("id");
+        const payload = Object.fromEntries(values.entries());
+        delete payload.id;
+        if (!payload.endDate) delete payload.endDate;
+        await apiRequest(id ? `/rehab-plans/${id}` : "/rehab-plans", {
+          method: id ? "PATCH" : "POST",
+          body: JSON.stringify(payload)
+        });
+        form.classList.add("hidden");
+        await loadRehabTabData();
+        renderDynamicPage(currentRoute());
+        showPilotMessage(id ? "康复计划已保存。" : "康复计划已新增。", "success");
+      } catch (error) {
+        showPilotMessage(error.message || "康复计划保存失败。", "error");
       } finally {
         if (submit) submit.disabled = false;
       }

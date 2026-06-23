@@ -29,6 +29,10 @@
     return ["admin", "super_admin", "manager", "director", "nurse"].includes(roleOf(user));
   }
 
+  function canManageRehab(user) {
+    return ["admin", "super_admin", "manager", "director", "caregiver", "rehab"].includes(roleOf(user));
+  }
+
   function canViewCameraLedger(user) {
     return ["admin", "super_admin", "manager", "director", "nurse", "device_manager"].includes(roleOf(user));
   }
@@ -57,6 +61,7 @@
     canEditResident,
     residentEditableFields,
     canManageCareTasks,
+    canManageRehab,
     canViewCameraLedger,
     canViewRtsp,
     canReviewAiEvent,
