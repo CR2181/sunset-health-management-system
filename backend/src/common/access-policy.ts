@@ -57,3 +57,11 @@ export function allowedResidentUpdateFields(roleValue: string): string[] {
   if (role === "rehab") return ["rehabSummary"];
   return [];
 }
+
+export function pickAllowedResidentUpdates<T extends Record<string, unknown>>(
+  roleValue: string,
+  input: T
+): Partial<T> {
+  const allowedFields = new Set(allowedResidentUpdateFields(roleValue));
+  return Object.fromEntries(Object.entries(input).filter(([key]) => allowedFields.has(key))) as Partial<T>;
+}

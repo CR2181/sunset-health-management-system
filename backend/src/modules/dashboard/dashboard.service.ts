@@ -26,7 +26,7 @@ export class DashboardService {
 
   async getData(actor: RequestUser) {
     const [residents, integrations, tasks, alerts, rtspStreams, devices, feedback, standards] = await Promise.all([
-      this.residentsService.list(),
+      this.residentsService.list(actor),
       this.integrations.find({ order: { sortOrder: "ASC", createdAt: "ASC" } }),
       this.careTasksService.list(),
       this.alertsService.list(),

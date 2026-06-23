@@ -1,4 +1,4 @@
-import { IsArray, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
+import { IsArray, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
 
 export class CreateResidentDto {
   @IsString()
@@ -18,9 +18,10 @@ export class CreateResidentDto {
   @MaxLength(30)
   risk: string;
 
+  @IsOptional()
   @IsString()
   @MaxLength(1000)
-  detail: string;
+  detail?: string;
 
   @IsOptional()
   @IsString()
@@ -40,4 +41,18 @@ export class CreateResidentDto {
   @IsOptional()
   @IsArray()
   riskTags?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  careSummary?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  rehabSummary?: string;
+
+  @IsOptional()
+  @IsIn(["active", "inactive", "discharged"])
+  status?: string;
 }
