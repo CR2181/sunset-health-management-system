@@ -848,13 +848,18 @@ async function handlePilotAction(action, id) {
     showPilotMessage("告警已标记为误报，后续可用于优化AI模型。", "success");
   }
 
-  if (action === "task-progress" || action === "task-complete") {
-    const status = action === "task-complete" ? "completed" : "in_progress";
+  if (["task-progress", "task-complete", "task-exception"].includes(action)) {
+    const status = {
+      "task-progress": "in_progress",
+      "task-complete": "completed",
+      "task-exception": "exception"
+    }[action];
     await apiRequest(`/care-tasks/${id}/status`, {
       method: "PATCH",
-      body: JSON.stringify({ status, operatorName, note: "管理端试点操作" })
+      body: JSON.stringify({ status, note: "管理端状态更新" })
     });
-    showPilotMessage(status === "completed" ? "护理任务已完成。" : "护理任务已进入处理中。", "success");
+    const messages = { in_progress: "护理任务已进入处理中。", completed: "护理任务已完成。", exception: "护理任务已异常关闭。" };
+    showPilotMessage(messages[status], status === "exception" ? "warning" : "success");
   }
 
   if (action === "device-heartbeat") {
@@ -989,6 +994,30 @@ function openResidentForm(resident) {
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function openCareTaskForm(task) {
+  const form = document.getElementById("careTaskForm");
+  if (!form) return;
+  form.reset();
+  const setValue = (name, value) => {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = value ?? "";
+  };
+  setValue("id", task?.id);
+  setValue("title", task?.title);
+  setValue("residentCode", task?.residentCode);
+  setValue("room", task?.room);
+  setValue("assigneeName", task?.assigneeName);
+  setValue("dueAt", task?.dueAt ? new Date(task.dueAt).toISOString().slice(0, 16) : "");
+  setValue("status", task?.status || "pending");
+  setValue("meta", task?.meta);
+  const title = document.getElementById("careTaskFormTitle");
+  if (title) title.textContent = task ? "编辑护理任务" : "新增护理任务";
+  const statusField = form.elements.namedItem("status");
+  if (statusField) statusField.disabled = Boolean(task);
+  form.classList.remove("hidden");
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 async function handleUiAction(action, target) {
   const messages = {
     search: ["全局搜索", "/api/search"],
@@ -1031,6 +1060,20 @@ async function handleUiAction(action, target) {
   }
   if (action === "resident-form-close") {
     document.getElementById("residentEditForm")?.classList.add("hidden");
+    return;
+  }
+  if (action === "care-task-create") {
+    openCareTaskForm(null);
+    return;
+  }
+  if (action === "care-task-edit") {
+    const task = tasks.find((item) => String(item.id) === String(target.dataset.id));
+    if (!task) throw new Error("未找到需要编辑的护理任务。");
+    openCareTaskForm(task);
+    return;
+  }
+  if (action === "care-task-form-close") {
+    document.getElementById("careTaskForm")?.classList.add("hidden");
     return;
   }
   if (action === "camera-create") {
@@ -1136,6 +1179,34 @@ function bindPageActions() {
         showPilotMessage(id ? "老人档案已保存。" : "老人档案已新增。", "success");
       } catch (error) {
         showPilotMessage(error.message || "老人档案保存失败。", "error");
+      } finally {
+        if (submit) submit.disabled = false;
+      }
+      return;
+    }
+    if (event.target.id === "careTaskForm") {
+      event.preventDefault();
+      const form = event.target;
+      const submit = form.querySelector('[type="submit"]');
+      if (submit) submit.disabled = true;
+      try {
+        const values = new FormData(form);
+        const id = values.get("id");
+        const payload = Object.fromEntries(values.entries());
+        delete payload.id;
+        if (!payload.dueAt) delete payload.dueAt;
+        else payload.dueAt = new Date(payload.dueAt).toISOString();
+        if (id) delete payload.status;
+        await apiRequest(id ? `/care-tasks/${id}` : "/care-tasks", {
+          method: id ? "PATCH" : "POST",
+          body: JSON.stringify(payload)
+        });
+        form.classList.add("hidden");
+        await loadDashboardData();
+        await rerenderCurrentRoute();
+        showPilotMessage(id ? "护理任务已保存。" : "护理任务已新增。", "success");
+      } catch (error) {
+        showPilotMessage(error.message || "护理任务保存失败。", "error");
       } finally {
         if (submit) submit.disabled = false;
       }

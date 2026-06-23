@@ -50,6 +50,16 @@ export function canAccessResident(profile: AccessProfile, residentCode: string):
   return false;
 }
 
+export function canReadCareTask(profile: AccessProfile, residentCode: string): boolean {
+  const role = normalizeRole(profile.role);
+  if (["super_admin", "director"].includes(role)) return true;
+  return role === "nurse" && (profile.assignedResidentCodes || []).includes(residentCode);
+}
+
+export function canManageCareTask(profile: AccessProfile, residentCode: string): boolean {
+  return canReadCareTask(profile, residentCode);
+}
+
 export function allowedResidentUpdateFields(roleValue: string): string[] {
   const role = normalizeRole(roleValue);
   if (["super_admin", "director"].includes(role)) return [...RESIDENT_ADMIN_FIELDS];

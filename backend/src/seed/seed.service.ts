@@ -44,11 +44,11 @@ export class SeedService implements OnModuleInit {
     ]);
 
     await this.seedCollection(this.tasks, [
-      { businessCode: "TASK-001", sortOrder: 1, title: "李桂英 / 17:30 晚间用药核对", meta: "护理员 王敏 / 智能药箱已开盖", state: "进行中", tone: "doing" },
-      { businessCode: "TASK-002", sortOrder: 2, title: "张守仁 / 18:00 翻身与皮肤检查", meta: "2F-208 / 超时 6 分钟已升级", state: "超时", tone: "late" },
-      { businessCode: "TASK-003", sortOrder: 3, title: "陈玉兰 / 餐后血糖复测", meta: "血糖仪自动同步 / 家属可见", state: "已完成", tone: "done" },
-      { businessCode: "TASK-004", sortOrder: 4, title: "康复区 / 下肢训练 20 分钟", meta: "最后康复计划第 12 天", state: "已完成", tone: "done" }
+      { businessCode: "TASK-001", sortOrder: 1, title: "晚间用药核对", meta: "智能药箱已开盖", residentCode: "RES-001", room: "4F-412", assigneeName: "王敏", state: "进行中", tone: "doing", status: "in_progress" },
+      { businessCode: "TASK-002", sortOrder: 2, title: "翻身与皮肤检查", meta: "超时后需说明原因", residentCode: "RES-002", room: "2F-208", assigneeName: "王敏", state: "已超时", tone: "late", status: "overdue" },
+      { businessCode: "TASK-003", sortOrder: 3, title: "餐后血糖复测", meta: "测量结果写入护理摘要", residentCode: "RES-001", room: "4F-412", assigneeName: "王敏", state: "已完成", tone: "done", status: "completed" }
     ]);
+    await this.backfillCareTaskScopes();
 
     await this.seedCollection(this.alerts, [
       { businessCode: "ALERT-001", sortOrder: 1, title: "4F 认知照护区越界风险", meta: "李桂英距离安全门 3.2 米 / 已通知责任护理员", level: "high", state: "23 秒" },
@@ -122,6 +122,21 @@ export class SeedService implements OnModuleInit {
         assignedResidentCodes: account.assignedResidentCodes,
         boundResidentCodes: account.boundResidentCodes
       }));
+    }
+  }
+
+  private async backfillCareTaskScopes() {
+    const defaults: Record<string, Partial<CareTask>> = {
+      "TASK-001": { residentCode: "RES-001", room: "4F-412", assigneeName: "王敏", status: "in_progress", state: "进行中", tone: "doing" },
+      "TASK-002": { residentCode: "RES-002", room: "2F-208", assigneeName: "王敏", status: "overdue", state: "已超时", tone: "late" },
+      "TASK-003": { residentCode: "RES-001", room: "4F-412", assigneeName: "王敏", status: "completed", state: "已完成", tone: "done" }
+    };
+    const tasks = await this.tasks.find();
+    for (const task of tasks) {
+      const fallback = defaults[task.businessCode];
+      if (!fallback || task.residentCode) continue;
+      Object.assign(task, fallback);
+      await this.tasks.save(task);
     }
   }
 

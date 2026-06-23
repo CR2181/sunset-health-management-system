@@ -62,11 +62,25 @@ $alert = Invoke-Api -Path "/api/alerts/$alertId/ack" -Method "PATCH" -Token $tok
   responderName = "smoke-test"
 }
 
-$taskId = $dashboard.data.tasks[0].id
+$task = Invoke-Api -Path "/api/care-tasks" -Method "POST" -Token $token -Body @{
+  title = "Smoke test care task"
+  residentCode = "RES-001"
+  room = "TEST-ROOM"
+  assigneeName = "smoke-test"
+  meta = "automated smoke test"
+  status = "pending"
+}
+$taskId = $task.data.id
+$task = Invoke-Api -Path "/api/care-tasks/$taskId" -Method "PATCH" -Token $token -Body @{
+  room = "TEST-ROOM-EDITED"
+}
 $task = Invoke-Api -Path "/api/care-tasks/$taskId/status" -Method "PATCH" -Token $token -Body @{
   status = "in_progress"
-  operatorName = "smoke-test"
-  note = "smoke test status update"
+  note = "smoke test started"
+}
+$task = Invoke-Api -Path "/api/care-tasks/$taskId/status" -Method "PATCH" -Token $token -Body @{
+  status = "completed"
+  note = "smoke test completed"
 }
 
 $aiEvent = Invoke-Api -Path "/api/ai-events" -Method "POST" -Token $token -Body @{

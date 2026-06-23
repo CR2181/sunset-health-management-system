@@ -25,6 +25,10 @@
     return [];
   }
 
+  function canManageCareTasks(user) {
+    return ["admin", "super_admin", "manager", "director", "nurse"].includes(roleOf(user));
+  }
+
   function canViewCameraLedger(user) {
     return ["admin", "super_admin", "manager", "director", "nurse", "device_manager"].includes(roleOf(user));
   }
@@ -52,6 +56,7 @@
     canCreateResident,
     canEditResident,
     residentEditableFields,
+    canManageCareTasks,
     canViewCameraLedger,
     canViewRtsp,
     canReviewAiEvent,

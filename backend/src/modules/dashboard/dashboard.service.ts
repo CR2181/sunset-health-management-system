@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { RequestUser } from "../../common/user-role";
+import { normalizeRole } from "../../common/access-policy";
 import { AlertsService } from "../alerts/alerts.service";
 import { CamerasService } from "../cameras/cameras.service";
 import { CareTasksService } from "../care-tasks/care-tasks.service";
@@ -25,10 +26,11 @@ export class DashboardService {
   ) {}
 
   async getData(actor: RequestUser) {
+    const canReadCareTasks = ["super_admin", "director", "nurse"].includes(normalizeRole(actor.role));
     const [residents, integrations, tasks, alerts, rtspStreams, devices, feedback, standards] = await Promise.all([
       this.residentsService.list(actor),
       this.integrations.find({ order: { sortOrder: "ASC", createdAt: "ASC" } }),
-      this.careTasksService.list(),
+      canReadCareTasks ? this.careTasksService.list(actor) : Promise.resolve([]),
       this.alertsService.list(),
       this.camerasService.listSanitized(),
       this.devicesService.list(),

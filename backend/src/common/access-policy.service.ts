@@ -6,6 +6,7 @@ import {
   AccessProfile,
   allowedResidentUpdateFields,
   canAccessResident,
+  canManageCareTask,
   normalizeRole,
   pickAllowedResidentUpdates
 } from "./access-policy";
@@ -38,6 +39,14 @@ export class AccessPolicyService {
     if (!["super_admin", "director"].includes(normalizeRole(profile.role))) {
       throw new ForbiddenException("无权新增老人档案");
     }
+  }
+
+  async assertCareTaskManage(actor: RequestUser, residentCode: string): Promise<AccessProfile> {
+    const profile = await this.getProfile(actor);
+    if (!canManageCareTask(profile, residentCode)) {
+      throw new ForbiddenException("无权管理该老人的护理任务");
+    }
+    return profile;
   }
 
   async authorizeResidentUpdate<T extends Record<string, unknown>>(
