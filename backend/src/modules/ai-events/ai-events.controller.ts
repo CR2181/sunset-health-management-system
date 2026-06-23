@@ -17,6 +17,8 @@ export class AiEventsController {
   ) {}
 
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin", "manager", "nurse")
   list() {
     return this.aiEventsService.list();
   }

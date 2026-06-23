@@ -16,6 +16,8 @@ export class DevicesController {
   ) {}
 
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin", "manager", "nurse", "device_manager")
   list() {
     return this.devicesService.list();
   }

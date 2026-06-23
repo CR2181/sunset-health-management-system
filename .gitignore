@@ -6,4 +6,9 @@ backend/node_modules/
 backend/dist/
 backend/.env
 backend/.runtime/
+demo-videos/
+*.mp4
+*.avi
+*.mov
+*.mkv
 .worktrees/

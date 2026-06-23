@@ -91,17 +91,23 @@ export class SeedService implements OnModuleInit {
   }
 
   private async seedUsers() {
-    const adminEmail = "admin@yian.local";
-    const exists = await this.users.exists({ where: { email: adminEmail } });
+    const accounts = [
+      { email: "admin@yian.local", password: "admin123", role: "admin" as const },
+      { email: "director@yian.local", password: "director123", role: "manager" as const },
+      { email: "nurse@yian.local", password: "nurse123", role: "nurse" as const },
+      { email: "rehab@yian.local", password: "rehab123", role: "caregiver" as const },
+      { email: "family@yian.local", password: "family123", role: "family" as const },
+      { email: "visitor@yian.local", password: "visitor123", role: "user" as const }
+    ];
 
-    if (!exists) {
-      await this.users.save(
-        this.users.create({
-          email: adminEmail,
-          passwordHash: await bcrypt.hash("admin123", 10),
-          role: "admin"
-        })
-      );
+    for (const account of accounts) {
+      const exists = await this.users.exists({ where: { email: account.email } });
+      if (exists) continue;
+      await this.users.save(this.users.create({
+        email: account.email,
+        passwordHash: await bcrypt.hash(account.password, 10),
+        role: account.role
+      }));
     }
   }
 

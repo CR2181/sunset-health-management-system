@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { RequestUser } from "../../common/user-role";
 import { AlertsService } from "../alerts/alerts.service";
 import { CamerasService } from "../cameras/cameras.service";
 import { CareTasksService } from "../care-tasks/care-tasks.service";
@@ -23,17 +24,30 @@ export class DashboardService {
     @InjectRepository(StandardScore) private readonly standards: Repository<StandardScore>
   ) {}
 
-  async getData() {
+  async getData(actor: RequestUser) {
     const [residents, integrations, tasks, alerts, rtspStreams, devices, feedback, standards] = await Promise.all([
       this.residentsService.list(),
       this.integrations.find({ order: { sortOrder: "ASC", createdAt: "ASC" } }),
       this.careTasksService.list(),
       this.alertsService.list(),
-      this.camerasService.list(),
+      this.camerasService.listSanitized(),
       this.devicesService.list(),
       this.feedback.find({ order: { sortOrder: "ASC", createdAt: "ASC" } }),
       this.standards.find({ order: { sortOrder: "ASC", createdAt: "ASC" } })
     ]);
+
+    if (actor.role === "family") {
+      return {
+        residents: residents.filter((resident) => resident.businessCode === "RES-001"),
+        integrations: [],
+        tasks: [],
+        alerts: [],
+        rtspStreams: [],
+        devices: [],
+        feedback: feedback.filter((item) => item.businessCode === "FB-001"),
+        standards: []
+      };
+    }
 
     return {
       residents,

@@ -13,7 +13,7 @@
     {
       role: ROLE_KEYS.superAdmin,
       roleName: "超级管理员",
-      email: "superadmin@yian.local",
+      email: "admin@yian.local",
       password: "admin123",
       displayName: "系统超级管理员",
       productionVisible: false

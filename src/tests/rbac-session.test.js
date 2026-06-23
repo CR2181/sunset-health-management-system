@@ -59,7 +59,7 @@ assert.equal(new Set(menuKeys).size, menuKeys.length, "menu keys must be unique"
 const menuPaths = menuPermissions.map((item) => item.path);
 assert.equal(new Set(menuPaths).size, menuPaths.length, "menu paths must be unique");
 
-assert.equal(getActiveMenuKey("/care-tasks", menuPermissions), "care-tasks");
+assert.equal(getActiveMenuKey("/care-tasks", menuPermissions), "careTasks");
 assert.notEqual(getActiveMenuKey("/care-tasks", menuPermissions), "rehab");
 assert.equal(getActiveMenuKey("/rehab", menuPermissions), "rehab");
 assert.equal(getActiveMenuKey("/reports", menuPermissions), "reports");
@@ -92,9 +92,10 @@ Object.values(componentGroups).forEach((routes) => {
   assert.equal(signatures.size, routes.length, `shared component ${routes[0].component} must use distinct page semantics`);
 });
 
-assert.equal(routeAliases.care, "care-tasks");
-assert.equal(routeAliases.safety, "safety-alerts");
-assert.equal(routeAliases.alerts, "alert-records");
+assert.equal(routeAliases.care, "careTasks");
+assert.equal(routeAliases["care-tasks"], "careTasks");
+assert.equal(routeAliases.safety, "alerts");
+assert.equal(routeAliases["alert-records"], "alerts");
 assert.equal(routeAliases.visitor, "demo");
 
 const director = demoAccounts.find((account) => account.role === ROLE_KEYS.director);
@@ -103,9 +104,13 @@ const rehab = demoAccounts.find((account) => account.role === ROLE_KEYS.rehab);
 
 assert.ok(canAccessRoute(director, "reports"));
 assert.ok(!canAccessRoute(director, "settings"));
-assert.ok(canAccessRoute(nurse, "care-tasks"));
-assert.ok(canAccessRoute(nurse, "alert-records"));
+assert.ok(canAccessRoute(nurse, "careTasks"));
+assert.ok(canAccessRoute(nurse, "alerts"));
+assert.ok(canAccessRoute(nurse, "cameras"));
+assert.ok(canAccessRoute(nurse, "aiEvents"));
 assert.ok(!canAccessRoute(nurse, "reports"));
+assert.ok(!canAccessRoute(family, "cameras"));
+assert.ok(!canAccessRoute(family, "auditLogs"));
 assert.ok(canAccessRoute(rehab, "rehab"));
 assert.ok(!canAccessRoute(rehab, "care-tasks"));
 assert.ok(!canAccessRoute(rehab, "settings"));

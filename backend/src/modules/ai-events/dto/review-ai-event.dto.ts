@@ -1,7 +1,7 @@
 import { IsBoolean, IsIn, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class ReviewAiEventDto {
-  @IsIn(["confirmed", "false_positive"])
+  @IsIn(["confirmed", "false_positive", "converted_to_alert", "resolved"])
   status: string;
 
   @IsString()

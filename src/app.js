@@ -60,6 +60,7 @@ let rtspStreams = [
 
 let devices = [];
 let aiEvents = [];
+let auditLogs = [];
 
 const modelStack = [
   { version: "YOLOv12", scene: "跌倒、越界、异常姿态", latency: "38ms", status: "主模型", score: 96 },
@@ -211,7 +212,9 @@ function getLegacyView(view) {
 function showProtectedView(view) {
   showAppShell();
   const route = rbac?.getRouteByKey(view);
-  const visibleView = route?.legacyView || (document.getElementById(view) ? view : getLegacyView(view));
+  const familyDashboard = route?.key === "dashboard" && appState.currentUser?.role === "family";
+  const displayRoute = familyDashboard ? { ...rbac.getRouteByKey("family"), key: "family" } : route;
+  const visibleView = displayRoute?.legacyView || (document.getElementById(view) ? view : getLegacyView(view));
   const fallbackRoute = view === "no-permission"
     ? { key: view, title: "无权限访问", breadcrumb: ["无权限访问"], legacyView: visibleView }
     : { key: view, title: "页面不存在", breadcrumb: ["页面不存在"], legacyView: visibleView };
@@ -222,7 +225,7 @@ function showProtectedView(view) {
   document.querySelectorAll(".nav-item").forEach((item) => {
     item.classList.toggle("active", Boolean(activeMenuKey) && item.dataset.menuKey === activeMenuKey);
   });
-  renderRoutePage(route || fallbackRoute);
+  renderRoutePage(displayRoute || fallbackRoute);
   refreshIcons();
 }
 
@@ -248,6 +251,37 @@ function renderRoutePage(route) {
   if (route?.legacyView === "module-page") {
     renderModulePage(route);
   }
+
+  if (route?.legacyView === "dynamic-page") {
+    renderDynamicPage(route);
+    void hydrateDynamicPage(route);
+  }
+}
+
+function getDynamicPageData() {
+  return {
+    residents,
+    integrations,
+    tasks,
+    alerts,
+    cameras: rtspStreams,
+    devices,
+    aiEvents,
+    auditLogs,
+    feedback,
+    standards
+  };
+}
+
+function renderDynamicPage(route) {
+  const target = document.getElementById("dynamicPageContent");
+  if (!target || !window.YianPages) return;
+  target.innerHTML = window.YianPages.render(route.key, {
+    route,
+    user: appState.currentUser,
+    data: getDynamicPageData()
+  });
+  refreshIcons();
 }
 
 function renderModulePage(route) {
@@ -283,38 +317,11 @@ function renderModulePage(route) {
 }
 
 async function apiRequest(path, options = {}) {
-  const headers = { ...(options.headers || {}) };
-  const token = localStorage.getItem(AUTH_TOKEN_KEY);
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  if (options.body && !(options.body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  const response = await fetch(`${API_BASE}/api${path}`, {
-    ...options,
-    headers
-  });
-
-  if (!response.ok) {
-    let message = `API request failed: ${response.status}`;
-    try {
-      const errorBody = await response.json();
-      message = errorBody.message || message;
-    } catch {
-      // Keep the status-based message when the body is not JSON.
-    }
-    throw new Error(Array.isArray(message) ? message.join("; ") : message);
-  }
-
-  if (response.status === 204) return null;
-  const body = await response.json();
-  return body && body.success === true && Object.prototype.hasOwnProperty.call(body, "data") ? body.data : body;
+  return window.YianApi.request(path, options);
 }
 
 async function loadDashboardData() {
+  if (!window.YianApi?.getToken()) return;
   try {
     const data = await apiRequest("/dashboard/data");
     if (Array.isArray(data.residents)) residents = data.residents;
@@ -331,11 +338,41 @@ async function loadDashboardData() {
 }
 
 async function loadPilotEvents() {
+  if (!window.YianPermissions?.canReviewAiEvent(appState.currentUser) || !window.YianApi?.getToken()) {
+    aiEvents = [];
+    return;
+  }
   try {
     aiEvents = await apiRequest("/ai-events");
   } catch (error) {
     console.warn("AI event list unavailable.", error);
+    aiEvents = window.YianDemoData?.aiEvents || [];
   }
+}
+
+async function loadAuditLogs() {
+  if (!window.YianPermissions?.canViewAuditLogs(appState.currentUser) || !window.YianApi?.getToken()) return;
+  try {
+    auditLogs = await apiRequest("/audit-logs");
+  } catch (error) {
+    console.warn("Audit log list unavailable.", error);
+  }
+}
+
+async function loadCameraData() {
+  if (!window.YianPermissions?.canViewCameraLedger(appState.currentUser) || !window.YianApi?.getToken()) return;
+  try {
+    rtspStreams = await apiRequest("/cameras");
+  } catch (error) {
+    console.warn("Camera list unavailable.", error);
+  }
+}
+
+async function hydrateDynamicPage(route) {
+  if (route?.key === "cameras") await loadCameraData();
+  if (route?.key === "aiEvents") await loadPilotEvents();
+  if (route?.key === "auditLogs") await loadAuditLogs();
+  renderDynamicPage(route);
 }
 
 function renderList(id, items, renderer, emptyText = "暂无数据") {
@@ -550,47 +587,6 @@ function applyAuthResult(result) {
     localStorage.setItem(AUTH_TOKEN_KEY, result.accessToken);
   }
   applySession(result?.user || null);
-}
-
-function renderAuthStatus() {
-  const status = document.getElementById("userStatus");
-  const loginEntry = document.getElementById("loginEntry");
-  const registerEntry = document.getElementById("registerEntry");
-  if (!status || !loginEntry || !registerEntry) return;
-
-  if (!appState.currentUser) {
-    status.innerHTML = `<i data-lucide="user-round"></i><span>未登录 · 普通权限</span>`;
-    loginEntry.innerHTML = `<i data-lucide="log-in"></i><span>登录</span>`;
-    registerEntry.style.display = "";
-    return;
-  }
-
-  const roleName = appState.currentUser.role === "admin" ? "管理员" : "普通用户";
-  status.innerHTML = `<i data-lucide="user-check"></i><span>${escapeHtml(appState.currentUser.email)} · ${roleName}</span>`;
-  loginEntry.innerHTML = `<i data-lucide="log-out"></i><span>退出</span>`;
-  registerEntry.style.display = "none";
-}
-
-async function restoreSession() {
-  try {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY);
-    if (token) {
-      const result = await apiRequest("/auth/me");
-      applySession(result.user);
-      return;
-    }
-
-    const session = JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || "null");
-    if (!session?.email) {
-      applySession(null);
-      return;
-    }
-    const user = findUser(session.email);
-    applySession(user ? { email: user.email, role: user.role } : null);
-  } catch (error) {
-    console.error("Session restore failed", error);
-    applySession(null);
-  }
 }
 
 async function handleAuthSubmit(event) {
@@ -815,15 +811,6 @@ function showPilotMessage(message, tone = "info") {
   target.textContent = message;
 }
 
-function requireLoginForPilotAction() {
-  if (localStorage.getItem(AUTH_TOKEN_KEY)) {
-    return true;
-  }
-  openAuthModal("login");
-  setAuthMessage("请先用管理员账号登录，再执行试点操作。", "error");
-  return false;
-}
-
 async function refreshPilotData() {
   await loadDashboardData();
   await loadPilotEvents();
@@ -933,20 +920,6 @@ function refreshIcons() {
   }
 }
 
-function bindNavigation() {
-  document.querySelectorAll(".nav-item").forEach((button) => {
-    button.addEventListener("click", () => {
-      const view = button.dataset.view;
-      const targetView = document.getElementById(view);
-      if (!targetView) return;
-      document.querySelectorAll(".nav-item").forEach((item) => item.classList.remove("active"));
-      document.querySelectorAll(".view").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      targetView.classList.add("active");
-    });
-  });
-}
-
 function bindVideoControls() {
   document.querySelectorAll("[data-grid-mode]").forEach((button) => {
     button.classList.toggle("active", Number(button.dataset.gridMode) === appState.gridMode);
@@ -956,53 +929,6 @@ function bindVideoControls() {
       button.classList.add("active");
       renderVideoWall();
     });
-  });
-}
-
-function bindRoleControls() {
-  document.querySelectorAll("[data-role]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.role === appState.role);
-    button.addEventListener("click", () => {
-      if (button.dataset.role === "admin" && appState.currentUser?.role !== "admin") {
-        openAuthModal("login");
-        setAuthMessage("需要管理员账号才能切换到管理员权限。", "error");
-        return;
-      }
-      appState.role = button.dataset.role === "admin" ? "admin" : "user";
-      document.querySelectorAll("[data-role]").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      renderPermissionList();
-      renderVideoWall();
-      refreshIcons();
-    });
-  });
-}
-
-function updateRoleControls() {
-  document.querySelectorAll("[data-role]").forEach((button) => {
-    const isAdminButton = button.dataset.role === "admin";
-    button.classList.toggle("active", button.dataset.role === appState.role);
-    button.disabled = isAdminButton && appState.currentUser?.role !== "admin";
-    button.title = button.disabled ? "请使用管理员账号登录" : "";
-  });
-}
-
-function bindAuthControls() {
-  document.getElementById("loginEntry")?.addEventListener("click", () => {
-    if (appState.currentUser) {
-      applySession(null);
-      return;
-    }
-    openAuthModal("login");
-  });
-  document.getElementById("registerEntry")?.addEventListener("click", () => openAuthModal("register"));
-  document.getElementById("authClose")?.addEventListener("click", closeAuthModal);
-  document.getElementById("authModal")?.addEventListener("click", (event) => {
-    if (event.target?.id === "authModal") closeAuthModal();
-  });
-  document.getElementById("authForm")?.addEventListener("submit", handleAuthSubmit);
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeAuthModal();
   });
 }
 
@@ -1020,6 +946,148 @@ function bindPilotActions() {
     } finally {
       button.disabled = false;
     }
+  });
+}
+
+function currentRoute() {
+  const key = window.YianRouter?.normalizeHash(window.location.hash);
+  return rbac?.getRouteByKey(key);
+}
+
+async function rerenderCurrentRoute() {
+  const route = currentRoute();
+  if (route?.legacyView === "dynamic-page") await hydrateDynamicPage(route);
+}
+
+function showConstructionMessage(title, apiPath) {
+  showPilotMessage(`${title}属于后续阶段，当前已预留页面边界。建议接口：${apiPath}`, "info");
+}
+
+async function handleUiAction(action, target) {
+  const messages = {
+    search: ["全局搜索", "/api/search"],
+    "dashboard-export": ["看板导出", "/api/reports/export"],
+    "resident-filter": ["老人档案筛选", "/api/residents?risk=&floor="],
+    "health-advice": ["健康建议生成", "/api/health-advice"],
+    "family-daily": ["家属日报发送", "/api/family/daily-reports"],
+    "family-visit": ["视频探视预约", "/api/family/visits"],
+    "resident-create": ["新增老人档案", "/api/residents"],
+    "resident-detail": ["老人档案详情", `/api/residents/${target.dataset.id || ":id"}`],
+    "alert-filter": ["告警筛选", "/api/alerts?level=&status="],
+    "device-filter": ["设备筛选", "/api/devices?status=offline"],
+    "audit-export": ["审计日志导出", "/api/audit-logs/export"],
+    "ai-import-info": ["测试视频导入", "/api/ai-events/import-metadata"]
+  };
+
+  if (action === "emergency-help") {
+    showPilotMessage("紧急呼救当前为演示入口；真实部署需连接合法自有呼叫器和现场通知链路。", "warning");
+    return;
+  }
+  if (action === "assessment-create") {
+    appState.router?.navigate("residents");
+    showConstructionMessage("新增评估", "/api/residents/:id/assessments");
+    return;
+  }
+  if (["task-refresh", "refresh-current"].includes(action)) {
+    await refreshPilotData();
+    await rerenderCurrentRoute();
+    showPilotMessage("数据已刷新。", "success");
+    return;
+  }
+  if (action === "camera-create") {
+    document.getElementById("cameraConfigForm")?.classList.remove("hidden");
+    document.getElementById("cameraConfigForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (action === "camera-form-close") {
+    document.getElementById("cameraConfigForm")?.classList.add("hidden");
+    return;
+  }
+  if (["camera-detail", "camera-edit"].includes(action)) {
+    if (!window.YianPermissions.canViewRtsp(appState.currentUser)) {
+      showPilotMessage("无权限查看原始 RTSP 配置。", "error");
+      return;
+    }
+    document.getElementById("cameraConfigForm")?.classList.remove("hidden");
+    showPilotMessage(action === "camera-edit" ? "已打开摄像头配置表单。" : "管理员查看配置的行为已预留审计记录。", "info");
+    return;
+  }
+  if (messages[action]) showConstructionMessage(...messages[action]);
+}
+
+async function handleAiReview(button) {
+  const id = button.dataset.id;
+  const requestedAction = button.dataset.aiReview;
+  const statusMap = { confirmed: "confirmed", false_positive: "false_positive", alert: "converted_to_alert", resolved: "resolved" };
+  const status = statusMap[requestedAction];
+  const reviewer = appState.currentUser?.displayName || appState.currentUser?.email || "人工复核员";
+
+  if (!window.YianPermissions.canReviewAiEvent(appState.currentUser)) {
+    showPilotMessage("当前角色无权限复核 AI 事件。", "error");
+    return;
+  }
+
+  if (String(id).startsWith("demo-")) {
+    const event = aiEvents.find((item) => item.id === id) || window.YianDemoData.aiEvents.find((item) => item.id === id);
+    if (event) {
+      event.status = status === "converted_to_alert" ? "confirmed" : status;
+      event.reviewer = reviewer;
+      event.reviewedAt = new Date().toISOString();
+    }
+    showPilotMessage(status === "converted_to_alert" ? "演示事件已转为告警（本地演示状态）。" : "演示事件已完成复核。", "success");
+    await rerenderCurrentRoute();
+    return;
+  }
+
+  if (!window.YianApi.getToken()) {
+    showPilotMessage("当前为只读演示模式，连接后端并重新登录后可执行复核。", "error");
+    return;
+  }
+
+  await apiRequest(`/ai-events/${id}/review`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, reviewedBy: reviewer, isFalsePositive: status === "false_positive", reviewNote: "管理端人工复核" })
+  });
+  await loadPilotEvents();
+  if (status === "converted_to_alert") await loadDashboardData();
+  await rerenderCurrentRoute();
+  showPilotMessage(status === "converted_to_alert" ? "AI事件已转为告警。" : "AI事件复核状态已保存。", "success");
+}
+
+function bindPageActions() {
+  document.addEventListener("click", async (event) => {
+    const aiButton = event.target.closest("[data-ai-review]");
+    if (aiButton) {
+      aiButton.disabled = true;
+      try { await handleAiReview(aiButton); } catch (error) { showPilotMessage(error.message || "AI事件复核失败。", "error"); }
+      finally { aiButton.disabled = false; }
+      return;
+    }
+
+    const actionTarget = event.target.closest("[data-ui-action]");
+    if (!actionTarget) return;
+    actionTarget.disabled = true;
+    try { await handleUiAction(actionTarget.dataset.uiAction, actionTarget); }
+    catch (error) { showPilotMessage(error.message || "操作失败。", "error"); }
+    finally { actionTarget.disabled = false; }
+  });
+
+  document.addEventListener("submit", async (event) => {
+    if (event.target.id !== "cameraConfigForm") return;
+    event.preventDefault();
+    if (!window.YianPermissions.canViewRtsp(appState.currentUser) || !window.YianApi.getToken()) {
+      showPilotMessage("只有已连接后端的管理员可以保存摄像头配置。", "error");
+      return;
+    }
+    const form = new FormData(event.target);
+    const payload = Object.fromEntries(form.entries());
+    payload.aiEnabled = form.has("aiEnabled");
+    payload.maskedDisplay = form.has("maskedDisplay");
+    await apiRequest("/cameras", { method: "POST", body: JSON.stringify(payload) });
+    event.target.reset();
+    event.target.classList.add("hidden");
+    await rerenderCurrentRoute();
+    showPilotMessage("摄像头配置已保存，并写入审计日志。", "success");
   });
 }
 
@@ -1053,7 +1121,7 @@ async function restoreSession() {
   }
 }
 
-function handleLoginPageSubmit(event) {
+async function handleLoginPageSubmit(event) {
   event.preventDefault();
   const email = document.getElementById("loginPageEmail")?.value || "";
   const password = document.getElementById("loginPagePassword")?.value || "";
@@ -1064,8 +1132,21 @@ function handleLoginPageSubmit(event) {
     return;
   }
 
-  setLoginPageMessage("");
+  try {
+    const backendSession = await apiRequest("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password })
+    });
+    window.YianApi.setToken(backendSession.accessToken);
+    setLoginPageMessage("");
+  } catch (error) {
+    window.YianApi.setToken("");
+    setLoginPageMessage("后端暂不可用，已进入只读演示模式。", "warning");
+  }
   applySession(result.user);
+  await loadDashboardData();
+  await loadPilotEvents();
+  renderBaseLists();
   const landingView = rbac?.getLandingView(result.user) || "dashboard";
   appState.router?.navigate(landingView);
 }
@@ -1099,6 +1180,7 @@ function bindAuthControls() {
   document.getElementById("loginEntry")?.addEventListener("click", () => {
     if (appState.currentUser) {
       authSession?.logout();
+      window.YianApi.setToken("");
       applySession(null);
       appState.router?.navigate("login");
       return;
@@ -1134,7 +1216,6 @@ function updateRoleControls() {
 
 async function bootApp() {
   try {
-    await loadDashboardData();
     renderBaseLists();
     renderVideoWall();
     renderModelStack();
@@ -1150,7 +1231,11 @@ async function bootApp() {
     bindRoleControls();
     bindAuthControls();
     bindPilotActions();
+    bindPageActions();
     await restoreSession();
+    await loadDashboardData();
+    await loadPilotEvents();
+    renderBaseLists();
     appState.router = window.YianRouter.createAppRouter({
       getUser: () => appState.currentUser,
       canAccessRoute: rbac.canAccessRoute,

@@ -107,13 +107,13 @@
             <button class="ghost-button" id="registerEntry" type="button">
               <i data-lucide="user-plus"></i><span>注册</span>
             </button>
-            <button class="icon-button" type="button" aria-label="搜索">
+            <button class="icon-button" data-ui-action="search" type="button" aria-label="搜索">
               <i data-lucide="search"></i>
             </button>
-            <button class="icon-button alert" type="button" aria-label="紧急呼救">
+            <button class="icon-button alert" data-ui-action="emergency-help" type="button" aria-label="紧急呼救">
               <i data-lucide="siren"></i>
             </button>
-            <button class="primary-action" type="button">
+            <button class="primary-action" data-ui-action="assessment-create" type="button">
               <i data-lucide="plus"></i><span>新增评估</span>
             </button>
           </div>
@@ -150,7 +150,7 @@
                   <h2>今日运营态势</h2>
                   <p>入住、照护、费用、设备和 AI 风险同步监控</p>
                 </div>
-                <button class="ghost-button" type="button"><i data-lucide="download"></i>导出</button>
+                <button class="ghost-button" data-ui-action="dashboard-export" type="button"><i data-lucide="download"></i>导出</button>
               </div>
               <div class="ops-map" aria-label="楼层运行热区">
                 <div class="floor normal"><span>1F 门诊康复</span><strong>平稳</strong></div>
@@ -166,7 +166,7 @@
                   <h2>重点老人风险</h2>
                   <p>按能力评估、实时设备和 AI 视觉数据综合排序</p>
                 </div>
-                <button class="icon-button" type="button" aria-label="筛选"><i data-lucide="sliders-horizontal"></i></button>
+                <button class="icon-button" data-ui-action="resident-filter" type="button" aria-label="筛选"><i data-lucide="sliders-horizontal"></i></button>
               </div>
               <div class="resident-list" id="residentList"></div>
             </section>
@@ -192,7 +192,7 @@
                   <h2>照护任务队列</h2>
                   <p>从个性化照护方案自动派发</p>
                 </div>
-                <button class="ghost-button" type="button"><i data-lucide="refresh-cw"></i>刷新</button>
+                <button class="ghost-button" data-ui-action="task-refresh" type="button"><i data-lucide="refresh-cw"></i>刷新</button>
               </div>
               <div class="task-list" id="taskList"></div>
             </section>
@@ -284,7 +284,7 @@
                   <h2>LLM 健康分析</h2>
                   <p>融合体征、照护、用药、活动和 AI 行为事件，输出健康状态评估建议</p>
                 </div>
-                <button class="ghost-button" type="button"><i data-lucide="sparkles"></i>生成建议</button>
+                <button class="ghost-button" data-ui-action="health-advice" type="button"><i data-lucide="sparkles"></i>生成建议</button>
               </div>
               <div class="llm-card" id="llmHealthCard"></div>
             </section>
@@ -350,7 +350,7 @@
                   <h2>家属移动端看板</h2>
                   <p>照护记录、健康指标、费用明细开放可查</p>
                 </div>
-                <button class="ghost-button" type="button"><i data-lucide="send"></i>发送日报</button>
+                <button class="ghost-button" data-ui-action="family-daily" type="button"><i data-lucide="send"></i>发送日报</button>
               </div>
               <div class="phone-preview">
                 <div class="phone-top"></div>
@@ -359,7 +359,7 @@
                 <div class="phone-line"><span>用药</span><strong>已完成 4/4</strong></div>
                 <div class="phone-line"><span>活动</span><strong>书画课 45 分钟</strong></div>
                 <div class="phone-line"><span>安全</span><strong>AI 巡检正常</strong></div>
-                <button class="phone-button" type="button">预约视频探视</button>
+                <button class="phone-button" data-ui-action="family-visit" type="button">预约视频探视</button>
               </div>
             </section>
             <section class="panel">
@@ -385,6 +385,10 @@
             </div>
             <div class="standard-table" id="standardTable"></div>
           </section>
+        </section>
+
+        <section class="view dynamic-page" id="dynamic-page" aria-label="业务模块页面">
+          <div class="dynamic-page-content" id="dynamicPageContent"></div>
         </section>
 
         <section class="view module-page" id="module-page" aria-label="模块页面">
@@ -436,7 +440,7 @@
 
         <section class="view fallback-view" id="not-found" aria-label="页面不存在">
           <div class="fallback-card">
-            <i data-lucide="map-x"></i>
+            <i data-lucide="map-pin-off"></i>
             <h2>页面不存在</h2>
             <p>你访问的页面不在当前 MVP 范围内。</p>
             <button class="primary-action" data-route-home type="button">返回工作台</button>
@@ -479,9 +483,25 @@
     <script src="./config/mock-accounts.js?v=rbac-20260618"></script>
     <script src="./config/rbac.js?v=routes-20260618"></script>
     <script src="./auth/session.js?v=rbac-20260618"></script>
+    <script src="./api.js?v=pages-20260623"></script>
+    <script src="./permissions.js?v=pages-20260623"></script>
+    <script src="./demo-data.js?v=pages-20260623"></script>
     <script src="./router/router.js?v=rbac-20260618"></script>
     <script src="./pages/role-dashboards.js?v=rbac-20260618"></script>
     <script src="./pages/module-pages.js?v=routes-20260618"></script>
+    <script src="./pages/under-construction.js?v=pages-20260623"></script>
+    <script src="./pages/no-permission.js?v=pages-20260623"></script>
+    <script src="./pages/page-registry.js?v=pages-20260623"></script>
+    <script src="./pages/dashboard.js?v=pages-20260623"></script>
+    <script src="./pages/residents.js?v=pages-20260623"></script>
+    <script src="./pages/care-tasks.js?v=pages-20260623"></script>
+    <script src="./pages/alerts.js?v=pages-20260623"></script>
+    <script src="./pages/cameras.js?v=pages-20260623"></script>
+    <script src="./pages/ai-events.js?v=pages-20260623"></script>
+    <script src="./pages/devices.js?v=pages-20260623"></script>
+    <script src="./pages/audit-logs.js?v=pages-20260623"></script>
+    <script src="./pages/family.js?v=pages-20260623"></script>
+    <script src="./pages/settings.js?v=pages-20260623"></script>
     <script src="./app.js?v=routes-20260618"></script>
   </body>
 </html>

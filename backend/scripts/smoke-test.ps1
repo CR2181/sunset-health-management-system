@@ -46,7 +46,7 @@ if (-not $token) {
   throw "Login did not return an access token."
 }
 
-$dashboard = Invoke-Api -Path "/api/dashboard/data"
+$dashboard = Invoke-Api -Path "/api/dashboard/data" -Token $token
 if (-not $dashboard.data.residents -or -not $dashboard.data.alerts -or -not $dashboard.data.devices) {
   throw "Dashboard data is incomplete."
 }

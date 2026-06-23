@@ -36,7 +36,7 @@ export class AiEvent extends BaseBusinessEntity {
   @Column({ type: "simple-json", nullable: true })
   evidence?: Record<string, unknown>;
 
-  @Column({ default: "pending_review" })
+  @Column({ default: "pending" })
   status: string;
 
   @Column({ name: "reviewed_by", nullable: true })

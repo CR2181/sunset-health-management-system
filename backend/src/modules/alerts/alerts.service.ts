@@ -13,6 +13,18 @@ export class AlertsService {
     return this.alerts.find({ order: { sortOrder: "ASC", createdAt: "ASC" } });
   }
 
+  createFromAiEvent(input: { id: string; businessCode: string; eventType: string; location: string; level: string; cameraCode: string }) {
+    const alert = this.alerts.create({
+      businessCode: `ALERT-AI-${Date.now()}`,
+      title: `AI事件转告警：${input.eventType}`,
+      meta: `${input.location} / 摄像头 ${input.cameraCode} / 来源 ${input.businessCode}`,
+      level: input.level,
+      state: "待确认",
+      status: "new"
+    });
+    return this.alerts.save(alert);
+  }
+
   async acknowledge(id: string, dto: AckAlertDto) {
     const alert = await this.findById(id);
     alert.status = "acknowledged";

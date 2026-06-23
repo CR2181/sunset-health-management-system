@@ -1,13 +1,17 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { AlertsService } from "../alerts/alerts.service";
 import { AiEvent } from "./ai-event.entity";
 import { CreateAiEventDto } from "./dto/create-ai-event.dto";
 import { ReviewAiEventDto } from "./dto/review-ai-event.dto";
 
 @Injectable()
 export class AiEventsService {
-  constructor(@InjectRepository(AiEvent) private readonly aiEvents: Repository<AiEvent>) {}
+  constructor(
+    @InjectRepository(AiEvent) private readonly aiEvents: Repository<AiEvent>,
+    private readonly alertsService: AlertsService
+  ) {}
 
   list() {
     return this.aiEvents.find({ order: { createdAt: "DESC" }, take: 50 });
@@ -18,7 +22,7 @@ export class AiEventsService {
       ...dto,
       eventTime: dto.eventTime ? new Date(dto.eventTime) : undefined,
       businessCode: `AI-EVT-${Date.now()}`,
-      status: "pending_review"
+      status: "pending"
     });
     return this.aiEvents.save(event);
   }
@@ -30,8 +34,13 @@ export class AiEventsService {
     event.reviewedAt = new Date();
     event.isFalsePositive = dto.isFalsePositive ?? dto.status === "false_positive";
     event.reviewNote = dto.reviewNote ?? event.reviewNote;
+    const savedEvent = await this.aiEvents.save(event);
+    const alert = dto.status === "converted_to_alert" ? await this.alertsService.createFromAiEvent(savedEvent) : null;
 
-    return this.aiEvents.save(event);
+    return {
+      ...savedEvent,
+      convertedAlertId: alert?.id || null
+    };
   }
 
   private async findById(id: string) {
