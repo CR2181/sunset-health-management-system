@@ -12,6 +12,8 @@ import { Integration } from "../modules/dashboard/entities/integration.entity";
 import { StandardScore } from "../modules/dashboard/entities/standard-score.entity";
 import { Device } from "../modules/devices/device.entity";
 import { Resident } from "../modules/residents/resident.entity";
+import { RehabPlan } from "../modules/rehab-plans/rehab-plan.entity";
+import { RehabTask } from "../modules/rehab-tasks/rehab-task.entity";
 
 @Injectable()
 export class SeedService implements OnModuleInit {
@@ -20,6 +22,8 @@ export class SeedService implements OnModuleInit {
     @InjectRepository(Resident) private readonly residents: Repository<Resident>,
     @InjectRepository(Integration) private readonly integrations: Repository<Integration>,
     @InjectRepository(CareTask) private readonly tasks: Repository<CareTask>,
+    @InjectRepository(RehabPlan) private readonly rehabPlans: Repository<RehabPlan>,
+    @InjectRepository(RehabTask) private readonly rehabTasks: Repository<RehabTask>,
     @InjectRepository(AlertEvent) private readonly alerts: Repository<AlertEvent>,
     @InjectRepository(CameraStream) private readonly cameras: Repository<CameraStream>,
     @InjectRepository(Device) private readonly devices: Repository<Device>,
@@ -49,6 +53,16 @@ export class SeedService implements OnModuleInit {
       { businessCode: "TASK-003", sortOrder: 3, title: "餐后血糖复测", meta: "测量结果写入护理摘要", residentCode: "RES-001", room: "4F-412", assigneeName: "王敏", state: "已完成", tone: "done", status: "completed" }
     ]);
     await this.backfillCareTaskScopes();
+
+    await this.seedCollection(this.rehabPlans, [
+      { businessCode: "REHAB-PLAN-001", sortOrder: 1, residentCode: "RES-002", title: "下肢稳定训练计划", goal: "改善站立稳定性与安全转移能力", riskNote: "训练全程使用助行器并由康复师陪同", startDate: "2026-06-24", endDate: "2026-07-24", frequency: "每周 5 次", status: "active", createdBy: "rehab@yian.local", updatedBy: "rehab@yian.local" },
+      { businessCode: "REHAB-PLAN-002", sortOrder: 2, residentCode: "RES-001", title: "步行耐力维护计划", goal: "维持公共区域安全步行能力", riskNote: "出现头晕或步态不稳立即停止", startDate: "2026-06-24", frequency: "每周 3 次", status: "draft", createdBy: "director@yian.local", updatedBy: "director@yian.local" }
+    ]);
+
+    await this.seedCollection(this.rehabTasks, [
+      { businessCode: "REHAB-TASK-001", sortOrder: 1, residentCode: "RES-002", planCode: "REHAB-PLAN-001", title: "坐站转换训练", description: "在康复师保护下完成 3 组坐站转换", scheduledDate: "2026-06-24", status: "pending", operatorName: "康复师" },
+      { businessCode: "REHAB-TASK-002", sortOrder: 2, residentCode: "RES-001", planCode: "REHAB-PLAN-002", title: "走廊步行训练", description: "在公共走廊完成低强度步行", scheduledDate: "2026-06-24", status: "pending", operatorName: "康复师" }
+    ]);
 
     await this.seedCollection(this.alerts, [
       { businessCode: "ALERT-001", sortOrder: 1, title: "4F 认知照护区越界风险", meta: "李桂英距离安全门 3.2 米 / 已通知责任护理员", level: "high", state: "23 秒" },

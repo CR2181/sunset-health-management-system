@@ -7,6 +7,7 @@ import {
   allowedResidentUpdateFields,
   canAccessResident,
   canManageCareTask,
+  canManageRehabRecord,
   normalizeRole,
   pickAllowedResidentUpdates
 } from "./access-policy";
@@ -45,6 +46,14 @@ export class AccessPolicyService {
     const profile = await this.getProfile(actor);
     if (!canManageCareTask(profile, residentCode)) {
       throw new ForbiddenException("无权管理该老人的护理任务");
+    }
+    return profile;
+  }
+
+  async assertRehabManage(actor: RequestUser, residentCode: string): Promise<AccessProfile> {
+    const profile = await this.getProfile(actor);
+    if (!canManageRehabRecord(profile, residentCode)) {
+      throw new ForbiddenException("无权管理该老人的康复记录");
     }
     return profile;
   }

@@ -15,6 +15,8 @@ import { DeviceEventsModule } from "./modules/device-events/device-events.module
 import { DevicesModule } from "./modules/devices/devices.module";
 import { HealthModule } from "./modules/health/health.module";
 import { ResidentsModule } from "./modules/residents/residents.module";
+import { RehabPlansModule } from "./modules/rehab-plans/rehab-plans.module";
+import { RehabTasksModule } from "./modules/rehab-tasks/rehab-tasks.module";
 import { SeedModule } from "./seed/seed.module";
 
 @Module({
@@ -36,6 +38,8 @@ import { SeedModule } from "./seed/seed.module";
     HealthModule,
     ResidentsModule,
     CareTasksModule,
+    RehabPlansModule,
+    RehabTasksModule,
     AlertsModule,
     CamerasModule,
     DevicesModule,
