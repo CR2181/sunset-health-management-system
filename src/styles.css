@@ -2449,6 +2449,28 @@ h3 {
   background: #f7faf9;
 }
 
+.record-form {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.record-form.hidden {
+  display: none;
+}
+
+.form-heading h3 {
+  margin: 8px 0 0;
+}
+
+.secondary-copy {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .camera-form.hidden {
   display: none;
 }

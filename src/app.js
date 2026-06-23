@@ -963,6 +963,32 @@ function showConstructionMessage(title, apiPath) {
   showPilotMessage(`${title}属于后续阶段，当前已预留页面边界。建议接口：${apiPath}`, "info");
 }
 
+function openResidentForm(resident) {
+  const form = document.getElementById("residentEditForm");
+  if (!form) return;
+  form.reset();
+  const setValue = (name, value) => {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = value ?? "";
+  };
+  setValue("id", resident?.id);
+  setValue("name", resident?.name);
+  setValue("age", resident?.age);
+  setValue("room", resident?.room);
+  setValue("careLevel", resident?.careLevel);
+  setValue("risk", resident?.risk);
+  setValue("riskTags", (resident?.riskTags || []).join(", "));
+  setValue("familyContactName", resident?.familyContactName);
+  setValue("familyContactPhone", resident?.familyContactPhone);
+  setValue("careSummary", resident?.careSummary || resident?.detail);
+  setValue("rehabSummary", resident?.rehabSummary);
+  setValue("status", resident?.status || "active");
+  const title = document.getElementById("residentFormTitle");
+  if (title) title.textContent = resident ? "编辑老人档案" : "新增老人档案";
+  form.classList.remove("hidden");
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 async function handleUiAction(action, target) {
   const messages = {
     search: ["全局搜索", "/api/search"],
@@ -971,7 +997,6 @@ async function handleUiAction(action, target) {
     "health-advice": ["健康建议生成", "/api/health-advice"],
     "family-daily": ["家属日报发送", "/api/family/daily-reports"],
     "family-visit": ["视频探视预约", "/api/family/visits"],
-    "resident-create": ["新增老人档案", "/api/residents"],
     "resident-detail": ["老人档案详情", `/api/residents/${target.dataset.id || ":id"}`],
     "alert-filter": ["告警筛选", "/api/alerts?level=&status="],
     "device-filter": ["设备筛选", "/api/devices?status=offline"],
@@ -992,6 +1017,20 @@ async function handleUiAction(action, target) {
     await refreshPilotData();
     await rerenderCurrentRoute();
     showPilotMessage("数据已刷新。", "success");
+    return;
+  }
+  if (action === "resident-create") {
+    openResidentForm(null);
+    return;
+  }
+  if (action === "resident-edit") {
+    const resident = residents.find((item) => String(item.id) === String(target.dataset.id));
+    if (!resident) throw new Error("未找到需要编辑的老人档案。");
+    openResidentForm(resident);
+    return;
+  }
+  if (action === "resident-form-close") {
+    document.getElementById("residentEditForm")?.classList.add("hidden");
     return;
   }
   if (action === "camera-create") {
@@ -1073,6 +1112,35 @@ function bindPageActions() {
   });
 
   document.addEventListener("submit", async (event) => {
+    if (event.target.id === "residentEditForm") {
+      event.preventDefault();
+      const form = event.target;
+      const submit = form.querySelector('[type="submit"]');
+      if (submit) submit.disabled = true;
+      try {
+        const values = new FormData(form);
+        const id = values.get("id");
+        const payload = Object.fromEntries(values.entries());
+        delete payload.id;
+        if (Object.prototype.hasOwnProperty.call(payload, "age")) payload.age = Number(payload.age);
+        if (Object.prototype.hasOwnProperty.call(payload, "riskTags")) {
+          payload.riskTags = String(payload.riskTags || "").split(/[,，]/).map((item) => item.trim()).filter(Boolean);
+        }
+        await apiRequest(id ? `/residents/${id}` : "/residents", {
+          method: id ? "PATCH" : "POST",
+          body: JSON.stringify(payload)
+        });
+        form.classList.add("hidden");
+        await loadDashboardData();
+        await rerenderCurrentRoute();
+        showPilotMessage(id ? "老人档案已保存。" : "老人档案已新增。", "success");
+      } catch (error) {
+        showPilotMessage(error.message || "老人档案保存失败。", "error");
+      } finally {
+        if (submit) submit.disabled = false;
+      }
+      return;
+    }
     if (event.target.id !== "cameraConfigForm") return;
     event.preventDefault();
     if (!window.YianPermissions.canViewRtsp(appState.currentUser) || !window.YianApi.getToken()) {

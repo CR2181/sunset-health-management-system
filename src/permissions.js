@@ -7,6 +7,24 @@
     return ["admin", "super_admin"].includes(roleOf(user));
   }
 
+  function canCreateResident(user) {
+    return ["admin", "super_admin", "manager", "director"].includes(roleOf(user));
+  }
+
+  function canEditResident(user) {
+    return ["admin", "super_admin", "manager", "director", "nurse", "caregiver", "rehab"].includes(roleOf(user));
+  }
+
+  function residentEditableFields(user) {
+    const role = roleOf(user);
+    if (["admin", "super_admin", "manager", "director"].includes(role)) {
+      return ["name", "age", "room", "careLevel", "risk", "riskTags", "familyContactName", "familyContactPhone", "careSummary", "rehabSummary", "status"];
+    }
+    if (role === "nurse") return ["careSummary"];
+    if (["caregiver", "rehab"].includes(role)) return ["rehabSummary"];
+    return [];
+  }
+
   function canViewCameraLedger(user) {
     return ["admin", "super_admin", "manager", "director", "nurse", "device_manager"].includes(roleOf(user));
   }
@@ -31,6 +49,9 @@
     roleOf,
     isAdmin,
     isFamily,
+    canCreateResident,
+    canEditResident,
+    residentEditableFields,
     canViewCameraLedger,
     canViewRtsp,
     canReviewAiEvent,
