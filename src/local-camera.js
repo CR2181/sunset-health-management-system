@@ -43,7 +43,16 @@
         video.srcObject = stream;
         video.muted = true;
         video.playsInline = true;
-        if (typeof video.play === "function") await video.play();
+        if (typeof video.play === "function") {
+          try {
+            await video.play();
+          } catch (error) {
+            stream.getTracks().forEach((track) => track.stop());
+            stream = null;
+            video.srcObject = null;
+            throw error;
+          }
+        }
       }
       timer = global.setInterval(() => { void emitFrame(); }, delay);
       return stream;

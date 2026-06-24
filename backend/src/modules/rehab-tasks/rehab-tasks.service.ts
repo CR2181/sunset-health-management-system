@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import {
@@ -55,7 +55,7 @@ export class RehabTasksService {
     const task = await this.findById(id);
     await this.accessPolicy.assertRehabManage(actor, task.residentCode);
     if (!canTransitionRehabTask(task.status, dto.status)) {
-      throw new BadRequestException(`Rehab task cannot transition from ${task.status} to ${dto.status}.`);
+      throw new UnprocessableEntityException(`Rehab task cannot transition from ${task.status} to ${dto.status}.`);
     }
     task.status = dto.status;
     task.operatorName = dto.operatorName || actor.email;

@@ -30,3 +30,24 @@ test("module load does not request camera permission", () => {
   assert.equal(permissionRequests, 0);
   assert.equal(typeof context.YianLocalCamera.createController, "function");
 });
+
+test("releases the stream when preview playback fails", async () => {
+  let stopped = false;
+  const track = { stop: () => { stopped = true; } };
+  const context = {
+    globalThis: null,
+    window: null,
+    location: { hostname: "127.0.0.1", protocol: "http:" },
+    navigator: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [track] }) } },
+    setInterval,
+    clearInterval
+  };
+  context.globalThis = context;
+  context.window = context;
+  vm.runInNewContext(source, context);
+  const video = { srcObject: null, play: async () => { throw new Error("play failed"); } };
+  const controller = context.YianLocalCamera.createController({ video, canvas: null });
+  await assert.rejects(controller.start(), /play failed/);
+  assert.equal(stopped, true);
+  assert.equal(video.srcObject, null);
+});

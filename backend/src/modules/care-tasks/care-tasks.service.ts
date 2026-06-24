@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { canReadCareTask, normalizeRole } from "../../common/access-policy";
@@ -65,7 +65,7 @@ export class CareTasksService {
     try {
       assertCareTaskTransition(task.status, dto.status);
     } catch (error) {
-      throw new BadRequestException(error instanceof Error ? error.message : "护理任务状态流转无效");
+      throw new UnprocessableEntityException(error instanceof Error ? error.message : "护理任务状态流转无效");
     }
     task.status = dto.status;
     task.lastNote = dto.note;
