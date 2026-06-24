@@ -6,8 +6,40 @@
     if (!global.YianPermissions.canViewCameraLedger(user) || global.YianPermissions.isFamily(user)) return global.YianNoPermissionPage.render({ title: "无权查看摄像头" });
     const canViewRtsp = global.YianPermissions.canViewRtsp(user);
     const cameras = data.cameras?.length ? data.cameras : global.YianDemoData.cameras;
+    const cameraUi = data.localCameraUi || {};
+    const residents = data.residents || [];
     return `
-      <div class="page-heading"><div><span class="badge info">合法自有设备</span><h2>摄像头管理</h2><p>当前只保存 RTSP/ONVIF/NVR 配置和状态，不播放真实视频、不做真实 AI 推理。</p></div>${canViewRtsp ? '<button class="primary-action" data-ui-action="camera-create" type="button"><i data-lucide="plus"></i><span>新增摄像头</span></button>' : ''}</div>
+      <div class="page-heading"><div><span class="badge info">合法自有设备</span><h2>摄像头管理</h2><p>RTSP/ONVIF/NVR 仅保存合法自有设备配置；本机摄像头只做用户主动开启的 mock 风险联动测试。</p></div>${canViewRtsp ? '<button class="primary-action" data-ui-action="camera-create" type="button"><i data-lucide="plus"></i><span>新增摄像头</span></button>' : ""}</div>
+      <section class="local-camera-tool" aria-labelledby="localCameraTitle">
+        <div class="local-camera-preview-wrap">
+          <video id="localCameraPreview" muted playsinline aria-label="本机摄像头预览"></video>
+          <canvas id="localCameraCanvas" hidden></canvas>
+          <span class="local-camera-placeholder"><i data-lucide="webcam"></i><span>等待用户主动开启</span></span>
+        </div>
+        <div class="local-camera-controls">
+          <div><span class="badge warning">Mock Vision</span><h3 id="localCameraTitle">本机摄像头 AI 告警联动</h3><p>普通帧不会伪造识别结果；只有下方测试按钮会生成 mock 风险事件。AI 辅助提示仅供人工复核。</p></div>
+          <div class="form-grid compact-form-grid">
+            <label>测试位置<input id="localCameraLocation" maxlength="120" value="护理站公共测试区" /></label>
+            <label>关联老人（可选）<select id="localCameraResident"><option value="">不关联老人</option>${residents.map((resident) => `<option value="${escape(resident.businessCode)}">${escape(resident.name)} · ${escape(resident.room)}</option>`).join("")}</select></label>
+          </div>
+          <div class="row-actions">
+            <button class="primary-action" data-ui-action="local-camera-start" type="button"><i data-lucide="video"></i><span>开启摄像头</span></button>
+            <button class="ghost-button" data-ui-action="local-camera-stop" type="button"><i data-lucide="video-off"></i><span>停止摄像头</span></button>
+          </div>
+          <div class="row-actions mock-event-actions">
+            <button class="ghost-button" data-ui-action="local-camera-mock" data-test-event-type="fall" type="button">模拟跌倒</button>
+            <button class="ghost-button" data-ui-action="local-camera-mock" data-test-event-type="leaving_bed" type="button">模拟离床</button>
+            <button class="ghost-button" data-ui-action="local-camera-mock" data-test-event-type="wandering" type="button">模拟徘徊</button>
+          </div>
+          <dl class="local-camera-status">
+            <dt>检测状态</dt><dd id="localCameraDetectionStatus">${escape(cameraUi.detectionStatus || "未启动")}</dd>
+            <dt>最近事件</dt><dd id="localCameraLatestEvent">${escape(cameraUi.latestEvent || "暂无")}</dd>
+            <dt>自动告警</dt><dd id="localCameraAlertStatus">${escape(cameraUi.alertStatus || "未触发")}</dd>
+            <dt>检测模式</dt><dd id="localCameraDetectorMode">${escape(cameraUi.detectorMode || "mock")}</dd>
+          </dl>
+          <p class="camera-privacy-copy">仅允许在公共区域测试；禁止在卧室、卫生间等私密区域使用。停止、离开页面或退出登录会释放摄像头。</p>
+        </div>
+      </section>
       <div class="camera-security-note"><i data-lucide="shield-check"></i><span>原始 RTSP 地址仅管理员可见；普通角色只看到脱敏地址和预览占位。</span></div>
       <div class="camera-ledger">${cameras.map((camera) => `
         <article class="camera-config-card">

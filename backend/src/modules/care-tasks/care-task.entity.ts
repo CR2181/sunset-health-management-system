@@ -21,6 +21,12 @@ export class CareTask extends BaseBusinessEntity {
   @Column({ name: "assignee_name", nullable: true })
   assigneeName?: string;
 
+  @Column({ name: "resident_code", nullable: true })
+  residentCode?: string;
+
+  @Column({ nullable: true })
+  room?: string;
+
   @Column({ name: "due_at", type: "timestamp", nullable: true })
   dueAt?: Date;
 

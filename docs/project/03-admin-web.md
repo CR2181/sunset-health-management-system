@@ -13,6 +13,7 @@ src/
   api.js                     API 请求、token 和后端不可用提示
   permissions.js             页面级角色判断
   demo-data.js               摄像头和 AI 事件演示数据
+  local-camera.js            本机摄像头启动、停止、抽帧和资源释放
   config/rbac.js             路由、菜单和角色权限
   auth/session.js            演示会话
   router/router.js           hash 路由、404 和无权限跳转
@@ -34,6 +35,7 @@ devices      设备管理
 auditLogs    审计日志
 family       家属透明
 settings     系统设置
+rehab        康复任务与康复计划双标签
 ```
 
 旧地址通过别名继续兼容，例如 `care-tasks -> careTasks`、`ai-camera -> cameras`。
@@ -45,6 +47,8 @@ settings     系统设置
 - 未完成功能：显示“建设中”和建议接口，不允许静默。
 - 无权限页面：显示“无权限访问”，不渲染敏感内容。
 - 摄像头配置：仅管理员可查看原始 RTSP 和保存配置。
+- 本机摄像头：用户点击后授权；停止、离页和退出时释放；普通帧不伪造 AI 结果。
+- 康复管理：任务和计划均可按授权范围新增、编辑和管理状态。
 - AI 事件：允许有权限的人工确认、标记误报、转为告警、关闭。
 - 家属：只进入家属摘要，不显示公共摄像头、全院告警或其他老人档案。
 
@@ -58,3 +62,4 @@ settings     系统设置
 - 新按钮必须有导航、接口操作、建设中提示或无权限提示之一。
 - 不在 HTML 中写真实 RTSP 账号密码。
 - 页面文件只负责渲染，统一请求继续放在 `api.js`。
+- 跨页摄像头生命周期和数据刷新由 `app.js` 协调，MediaStream 细节只放在 `local-camera.js`。

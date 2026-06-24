@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { RequestUser } from "../../common/user-role";
+import { normalizeRole } from "../../common/access-policy";
 import { AlertsService } from "../alerts/alerts.service";
 import { CamerasService } from "../cameras/cameras.service";
 import { CareTasksService } from "../care-tasks/care-tasks.service";
@@ -25,10 +26,12 @@ export class DashboardService {
   ) {}
 
   async getData(actor: RequestUser) {
+    const role = normalizeRole(actor.role);
+    const canReadCareTasks = ["super_admin", "director", "nurse"].includes(role);
     const [residents, integrations, tasks, alerts, rtspStreams, devices, feedback, standards] = await Promise.all([
-      this.residentsService.list(),
+      this.residentsService.list(actor),
       this.integrations.find({ order: { sortOrder: "ASC", createdAt: "ASC" } }),
-      this.careTasksService.list(),
+      canReadCareTasks ? this.careTasksService.list(actor) : Promise.resolve([]),
       this.alertsService.list(),
       this.camerasService.listSanitized(),
       this.devicesService.list(),
@@ -36,9 +39,9 @@ export class DashboardService {
       this.standards.find({ order: { sortOrder: "ASC", createdAt: "ASC" } })
     ]);
 
-    if (actor.role === "family") {
+    if (role === "family") {
       return {
-        residents: residents.filter((resident) => resident.businessCode === "RES-001"),
+        residents,
         integrations: [],
         tasks: [],
         alerts: [],
@@ -47,6 +50,10 @@ export class DashboardService {
         feedback: feedback.filter((item) => item.businessCode === "FB-001"),
         standards: []
       };
+    }
+
+    if (role === "rehab") {
+      return { residents, integrations: [], tasks: [], alerts: [], rtspStreams: [], devices: [], feedback: [], standards: [] };
     }
 
     return {

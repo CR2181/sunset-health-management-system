@@ -15,6 +15,12 @@ export class User {
   @Column({ default: "user" })
   role: UserRole;
 
+  @Column({ name: "assigned_resident_codes", type: "simple-json", nullable: true })
+  assignedResidentCodes?: string[];
+
+  @Column({ name: "bound_resident_codes", type: "simple-json", nullable: true })
+  boundResidentCodes?: string[];
+
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 

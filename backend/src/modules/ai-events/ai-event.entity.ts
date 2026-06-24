@@ -12,6 +12,9 @@ export class AiEvent extends BaseBusinessEntity {
   @Column({ name: "camera_code" })
   cameraCode: string;
 
+  @Column({ name: "camera_source", default: "configured_camera" })
+  cameraSource: string;
+
   @Column({ name: "resident_code", nullable: true })
   residentCode?: string;
 
@@ -29,6 +32,18 @@ export class AiEvent extends BaseBusinessEntity {
 
   @Column({ name: "evidence_url", nullable: true })
   evidenceUrl?: string;
+
+  @Column({ name: "evidence_image_path", nullable: true })
+  evidenceImagePath?: string;
+
+  @Column({ name: "detected_at", type: "timestamp", nullable: true })
+  detectedAt?: Date;
+
+  @Column({ name: "llm_summary", type: "text", nullable: true })
+  llmSummary?: string;
+
+  @Column({ name: "alert_id", nullable: true })
+  alertId?: string;
 
   @Column({ type: "float", nullable: true })
   confidence?: number;

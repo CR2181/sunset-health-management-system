@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcryptjs";
 import { DeepPartial, Repository } from "typeorm";
 import { User } from "../auth/user.entity";
+import { UserRole } from "../common/user-role";
 import { AlertEvent } from "../modules/alerts/alert-event.entity";
 import { CameraStream } from "../modules/cameras/camera-stream.entity";
 import { CareTask } from "../modules/care-tasks/care-task.entity";
@@ -11,6 +12,8 @@ import { Integration } from "../modules/dashboard/entities/integration.entity";
 import { StandardScore } from "../modules/dashboard/entities/standard-score.entity";
 import { Device } from "../modules/devices/device.entity";
 import { Resident } from "../modules/residents/resident.entity";
+import { RehabPlan } from "../modules/rehab-plans/rehab-plan.entity";
+import { RehabTask } from "../modules/rehab-tasks/rehab-task.entity";
 
 @Injectable()
 export class SeedService implements OnModuleInit {
@@ -19,6 +22,8 @@ export class SeedService implements OnModuleInit {
     @InjectRepository(Resident) private readonly residents: Repository<Resident>,
     @InjectRepository(Integration) private readonly integrations: Repository<Integration>,
     @InjectRepository(CareTask) private readonly tasks: Repository<CareTask>,
+    @InjectRepository(RehabPlan) private readonly rehabPlans: Repository<RehabPlan>,
+    @InjectRepository(RehabTask) private readonly rehabTasks: Repository<RehabTask>,
     @InjectRepository(AlertEvent) private readonly alerts: Repository<AlertEvent>,
     @InjectRepository(CameraStream) private readonly cameras: Repository<CameraStream>,
     @InjectRepository(Device) private readonly devices: Repository<Device>,
@@ -43,10 +48,20 @@ export class SeedService implements OnModuleInit {
     ]);
 
     await this.seedCollection(this.tasks, [
-      { businessCode: "TASK-001", sortOrder: 1, title: "李桂英 / 17:30 晚间用药核对", meta: "护理员 王敏 / 智能药箱已开盖", state: "进行中", tone: "doing" },
-      { businessCode: "TASK-002", sortOrder: 2, title: "张守仁 / 18:00 翻身与皮肤检查", meta: "2F-208 / 超时 6 分钟已升级", state: "超时", tone: "late" },
-      { businessCode: "TASK-003", sortOrder: 3, title: "陈玉兰 / 餐后血糖复测", meta: "血糖仪自动同步 / 家属可见", state: "已完成", tone: "done" },
-      { businessCode: "TASK-004", sortOrder: 4, title: "康复区 / 下肢训练 20 分钟", meta: "最后康复计划第 12 天", state: "已完成", tone: "done" }
+      { businessCode: "TASK-001", sortOrder: 1, title: "晚间用药核对", meta: "智能药箱已开盖", residentCode: "RES-001", room: "4F-412", assigneeName: "王敏", state: "进行中", tone: "doing", status: "in_progress" },
+      { businessCode: "TASK-002", sortOrder: 2, title: "翻身与皮肤检查", meta: "超时后需说明原因", residentCode: "RES-002", room: "2F-208", assigneeName: "王敏", state: "已超时", tone: "late", status: "overdue" },
+      { businessCode: "TASK-003", sortOrder: 3, title: "餐后血糖复测", meta: "测量结果写入护理摘要", residentCode: "RES-001", room: "4F-412", assigneeName: "王敏", state: "已完成", tone: "done", status: "completed" }
+    ]);
+    await this.backfillCareTaskScopes();
+
+    await this.seedCollection(this.rehabPlans, [
+      { businessCode: "REHAB-PLAN-001", sortOrder: 1, residentCode: "RES-002", title: "下肢稳定训练计划", goal: "改善站立稳定性与安全转移能力", riskNote: "训练全程使用助行器并由康复师陪同", startDate: "2026-06-24", endDate: "2026-07-24", frequency: "每周 5 次", status: "active", createdBy: "rehab@yian.local", updatedBy: "rehab@yian.local" },
+      { businessCode: "REHAB-PLAN-002", sortOrder: 2, residentCode: "RES-001", title: "步行耐力维护计划", goal: "维持公共区域安全步行能力", riskNote: "出现头晕或步态不稳立即停止", startDate: "2026-06-24", frequency: "每周 3 次", status: "draft", createdBy: "director@yian.local", updatedBy: "director@yian.local" }
+    ]);
+
+    await this.seedCollection(this.rehabTasks, [
+      { businessCode: "REHAB-TASK-001", sortOrder: 1, residentCode: "RES-002", planCode: "REHAB-PLAN-001", title: "坐站转换训练", description: "在康复师保护下完成 3 组坐站转换", scheduledDate: "2026-06-24", status: "pending", operatorName: "康复师" },
+      { businessCode: "REHAB-TASK-002", sortOrder: 2, residentCode: "RES-001", planCode: "REHAB-PLAN-002", title: "走廊步行训练", description: "在公共走廊完成低强度步行", scheduledDate: "2026-06-24", status: "pending", operatorName: "康复师" }
     ]);
 
     await this.seedCollection(this.alerts, [
@@ -91,23 +106,51 @@ export class SeedService implements OnModuleInit {
   }
 
   private async seedUsers() {
-    const accounts = [
-      { email: "admin@yian.local", password: "admin123", role: "admin" as const },
-      { email: "director@yian.local", password: "director123", role: "manager" as const },
-      { email: "nurse@yian.local", password: "nurse123", role: "nurse" as const },
-      { email: "rehab@yian.local", password: "rehab123", role: "caregiver" as const },
-      { email: "family@yian.local", password: "family123", role: "family" as const },
-      { email: "visitor@yian.local", password: "visitor123", role: "user" as const }
+    const accounts: Array<{
+      email: string;
+      password: string;
+      role: UserRole;
+      assignedResidentCodes?: string[];
+      boundResidentCodes?: string[];
+    }> = [
+      { email: "admin@yian.local", password: "admin123", role: "admin" },
+      { email: "director@yian.local", password: "director123", role: "manager" },
+      { email: "nurse@yian.local", password: "nurse123", role: "nurse", assignedResidentCodes: ["RES-001", "RES-002"] },
+      { email: "rehab@yian.local", password: "rehab123", role: "caregiver", assignedResidentCodes: ["RES-002"] },
+      { email: "family@yian.local", password: "family123", role: "family", boundResidentCodes: ["RES-001"] },
+      { email: "visitor@yian.local", password: "visitor123", role: "user" }
     ];
 
     for (const account of accounts) {
-      const exists = await this.users.exists({ where: { email: account.email } });
-      if (exists) continue;
+      const existing = await this.users.findOne({ where: { email: account.email } });
+      if (existing) {
+        existing.assignedResidentCodes = account.assignedResidentCodes;
+        existing.boundResidentCodes = account.boundResidentCodes;
+        await this.users.save(existing);
+        continue;
+      }
       await this.users.save(this.users.create({
         email: account.email,
         passwordHash: await bcrypt.hash(account.password, 10),
-        role: account.role
+        role: account.role,
+        assignedResidentCodes: account.assignedResidentCodes,
+        boundResidentCodes: account.boundResidentCodes
       }));
+    }
+  }
+
+  private async backfillCareTaskScopes() {
+    const defaults: Record<string, Partial<CareTask>> = {
+      "TASK-001": { residentCode: "RES-001", room: "4F-412", assigneeName: "王敏", status: "in_progress", state: "进行中", tone: "doing" },
+      "TASK-002": { residentCode: "RES-002", room: "2F-208", assigneeName: "王敏", status: "overdue", state: "已超时", tone: "late" },
+      "TASK-003": { residentCode: "RES-001", room: "4F-412", assigneeName: "王敏", status: "completed", state: "已完成", tone: "done" }
+    };
+    const tasks = await this.tasks.find();
+    for (const task of tasks) {
+      const fallback = defaults[task.businessCode];
+      if (!fallback || task.residentCode) continue;
+      Object.assign(task, fallback);
+      await this.tasks.save(task);
     }
   }
 

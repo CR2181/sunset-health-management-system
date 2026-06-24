@@ -18,6 +18,12 @@ export class Resident extends BaseBusinessEntity {
   @Column({ type: "text" })
   detail: string;
 
+  @Column({ name: "care_summary", type: "text", nullable: true })
+  careSummary?: string;
+
+  @Column({ name: "rehab_summary", type: "text", nullable: true })
+  rehabSummary?: string;
+
   @Column({ name: "care_level", nullable: true })
   careLevel?: string;
 

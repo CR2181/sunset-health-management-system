@@ -1,4 +1,4 @@
-import { IsArray, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
+import { IsArray, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
 
 export class UpdateResidentDto {
   @IsOptional()
@@ -45,4 +45,18 @@ export class UpdateResidentDto {
   @IsOptional()
   @IsArray()
   riskTags?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  careSummary?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  rehabSummary?: string;
+
+  @IsOptional()
+  @IsIn(["active", "inactive", "discharged"])
+  status?: string;
 }

@@ -7,6 +7,11 @@ backend/dist/
 backend/.env
 backend/.runtime/
 demo-videos/
+demo-images/
+models/
+evidence/
+*.pt
+*.onnx
 *.mp4
 *.avi
 *.mov

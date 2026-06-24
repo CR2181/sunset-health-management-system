@@ -3,7 +3,8 @@ const appState = {
   role: "visitor",
   authMode: "login",
   currentUser: null,
-  router: null
+  router: null,
+  rehabTab: "tasks"
 };
 
 const AUTH_USERS_KEY = "yian-auth-users";
@@ -61,6 +62,16 @@ let rtspStreams = [
 let devices = [];
 let aiEvents = [];
 let auditLogs = [];
+let rehabTasks = [];
+let rehabPlans = [];
+let localCameraController = null;
+let visionConfig = null;
+const localCameraUi = {
+  detectionStatus: "未启动",
+  latestEvent: "暂无",
+  alertStatus: "未触发",
+  detectorMode: "mock"
+};
 
 const modelStack = [
   { version: "YOLOv12", scene: "跌倒、越界、异常姿态", latency: "38ms", status: "主模型", score: 96 },
@@ -210,6 +221,7 @@ function getLegacyView(view) {
 }
 
 function showProtectedView(view) {
+  if (view !== "cameras") stopLocalCamera("已离开摄像头页面");
   showAppShell();
   const route = rbac?.getRouteByKey(view);
   const familyDashboard = route?.key === "dashboard" && appState.currentUser?.role === "family";
@@ -268,6 +280,10 @@ function getDynamicPageData() {
     devices,
     aiEvents,
     auditLogs,
+    rehabTasks,
+    rehabPlans,
+    rehabTab: appState.rehabTab,
+    localCameraUi,
     feedback,
     standards
   };
@@ -368,10 +384,23 @@ async function loadCameraData() {
   }
 }
 
+async function loadAlertsData() {
+  if (!window.YianApi?.getToken()) return;
+  alerts = await apiRequest("/alerts");
+}
+
+async function loadRehabTabData() {
+  if (!window.YianApi?.getToken()) return;
+  if (appState.rehabTab === "plans") rehabPlans = await apiRequest("/rehab-plans");
+  else rehabTasks = await apiRequest("/rehab-tasks");
+}
+
 async function hydrateDynamicPage(route) {
   if (route?.key === "cameras") await loadCameraData();
   if (route?.key === "aiEvents") await loadPilotEvents();
   if (route?.key === "auditLogs") await loadAuditLogs();
+  if (route?.key === "rehab") await loadRehabTabData();
+  if (route?.key === "alerts") await loadAlertsData();
   renderDynamicPage(route);
 }
 
@@ -568,6 +597,7 @@ function closeAuthModal() {
 }
 
 function applySession(user) {
+  if (!user) stopLocalCamera("已退出登录");
   appState.currentUser = user || null;
   appState.role = user?.role || "visitor";
   if (!user) {
@@ -848,13 +878,18 @@ async function handlePilotAction(action, id) {
     showPilotMessage("告警已标记为误报，后续可用于优化AI模型。", "success");
   }
 
-  if (action === "task-progress" || action === "task-complete") {
-    const status = action === "task-complete" ? "completed" : "in_progress";
+  if (["task-progress", "task-complete", "task-exception"].includes(action)) {
+    const status = {
+      "task-progress": "in_progress",
+      "task-complete": "completed",
+      "task-exception": "exception"
+    }[action];
     await apiRequest(`/care-tasks/${id}/status`, {
       method: "PATCH",
-      body: JSON.stringify({ status, operatorName, note: "管理端试点操作" })
+      body: JSON.stringify({ status, note: "管理端状态更新" })
     });
-    showPilotMessage(status === "completed" ? "护理任务已完成。" : "护理任务已进入处理中。", "success");
+    const messages = { in_progress: "护理任务已进入处理中。", completed: "护理任务已完成。", exception: "护理任务已异常关闭。" };
+    showPilotMessage(messages[status], status === "exception" ? "warning" : "success");
   }
 
   if (action === "device-heartbeat") {
@@ -963,6 +998,168 @@ function showConstructionMessage(title, apiPath) {
   showPilotMessage(`${title}属于后续阶段，当前已预留页面边界。建议接口：${apiPath}`, "info");
 }
 
+function openResidentForm(resident) {
+  const form = document.getElementById("residentEditForm");
+  if (!form) return;
+  form.reset();
+  const setValue = (name, value) => {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = value ?? "";
+  };
+  setValue("id", resident?.id);
+  setValue("name", resident?.name);
+  setValue("age", resident?.age);
+  setValue("room", resident?.room);
+  setValue("careLevel", resident?.careLevel);
+  setValue("risk", resident?.risk);
+  setValue("riskTags", (resident?.riskTags || []).join(", "));
+  setValue("familyContactName", resident?.familyContactName);
+  setValue("familyContactPhone", resident?.familyContactPhone);
+  setValue("careSummary", resident?.careSummary || resident?.detail);
+  setValue("rehabSummary", resident?.rehabSummary);
+  setValue("status", resident?.status || "active");
+  const title = document.getElementById("residentFormTitle");
+  if (title) title.textContent = resident ? "编辑老人档案" : "新增老人档案";
+  form.classList.remove("hidden");
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function openCareTaskForm(task) {
+  const form = document.getElementById("careTaskForm");
+  if (!form) return;
+  form.reset();
+  const setValue = (name, value) => {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = value ?? "";
+  };
+  setValue("id", task?.id);
+  setValue("title", task?.title);
+  setValue("residentCode", task?.residentCode);
+  setValue("room", task?.room);
+  setValue("assigneeName", task?.assigneeName);
+  setValue("dueAt", task?.dueAt ? new Date(task.dueAt).toISOString().slice(0, 16) : "");
+  setValue("status", task?.status || "pending");
+  setValue("meta", task?.meta);
+  const title = document.getElementById("careTaskFormTitle");
+  if (title) title.textContent = task ? "编辑护理任务" : "新增护理任务";
+  const statusField = form.elements.namedItem("status");
+  if (statusField) statusField.disabled = Boolean(task);
+  form.classList.remove("hidden");
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function openRehabTaskForm(task) {
+  const form = document.getElementById("rehabTaskForm");
+  if (!form) return;
+  form.reset();
+  ["id", "residentCode", "planCode", "title", "scheduledDate", "operatorName", "description"].forEach((name) => {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = task?.[name] ?? "";
+  });
+  const title = document.getElementById("rehabTaskFormTitle");
+  if (title) title.textContent = task ? "编辑康复任务" : "新增康复任务";
+  form.classList.remove("hidden");
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function openRehabPlanForm(plan) {
+  const form = document.getElementById("rehabPlanForm");
+  if (!form) return;
+  form.reset();
+  ["id", "residentCode", "title", "startDate", "endDate", "frequency", "goal", "riskNote"].forEach((name) => {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = plan?.[name] ?? "";
+  });
+  const title = document.getElementById("rehabPlanFormTitle");
+  if (title) title.textContent = plan ? "编辑康复计划" : "新增康复计划";
+  form.classList.remove("hidden");
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function updateLocalCameraDom() {
+  const values = {
+    localCameraDetectionStatus: localCameraUi.detectionStatus,
+    localCameraLatestEvent: localCameraUi.latestEvent,
+    localCameraAlertStatus: localCameraUi.alertStatus,
+    localCameraDetectorMode: localCameraUi.detectorMode
+  };
+  Object.entries(values).forEach(([id, value]) => {
+    const target = document.getElementById(id);
+    if (target) target.textContent = value;
+  });
+  document.querySelector(".local-camera-tool")?.classList.toggle("active", Boolean(localCameraController?.getState().active));
+}
+
+function stopLocalCamera(message = "已停止") {
+  localCameraController?.stop();
+  localCameraController = null;
+  localCameraUi.detectionStatus = message;
+  updateLocalCameraDom();
+}
+
+async function submitLocalVisionFrame({ imageDataUrl, capturedAt, testEventType } = {}) {
+  const location = document.getElementById("localCameraLocation")?.value.trim() || "公共测试区";
+  const residentCode = document.getElementById("localCameraResident")?.value || undefined;
+  const payload = {
+    sourceId: "local_webcam",
+    cameraCode: "LOCAL-WEBCAM",
+    location,
+    residentCode,
+    capturedAt: capturedAt || new Date().toISOString()
+  };
+  if (imageDataUrl) payload.imageDataUrl = imageDataUrl;
+  if (testEventType) {
+    payload.testEventType = testEventType;
+    payload.testConfidence = 0.92;
+  }
+  const result = await apiRequest("/vision/frame", { method: "POST", body: JSON.stringify(payload) });
+  localCameraUi.detectionStatus = result.detectorStatus === "unavailable" ? "AI 服务不可用" : "监测中";
+  if (result.events?.length) {
+    const event = result.events[0];
+    localCameraUi.latestEvent = `${event.eventType} · ${Math.round(Number(event.confidence || 0) * 100)}%`;
+    await loadPilotEvents();
+  } else {
+    localCameraUi.latestEvent = "本帧未发现 mock 风险";
+  }
+  if (result.alerts?.length) {
+    localCameraUi.alertStatus = result.alerts[0].action === "updated" ? "已更新现有告警" : "已自动生成告警";
+    await loadAlertsData();
+  }
+  updateLocalCameraDom();
+  return result;
+}
+
+async function startLocalCamera() {
+  if (localCameraController?.getState().active) {
+    showPilotMessage("本机摄像头已经开启。", "info");
+    return;
+  }
+  if (!window.YianLocalCamera?.isSupported()) throw new Error("当前环境不支持本机摄像头，请使用 localhost 或 HTTPS。 ");
+  visionConfig = await apiRequest("/vision/config");
+  localCameraUi.detectorMode = visionConfig.detectorMode || "mock";
+  const video = document.getElementById("localCameraPreview");
+  const canvas = document.getElementById("localCameraCanvas");
+  if (!video || !canvas) throw new Error("本机摄像头预览区域尚未准备好。");
+  localCameraController = window.YianLocalCamera.createController({
+    video,
+    canvas,
+    intervalMs: visionConfig.frameIntervalMs || 1000,
+    onFrame: async (frame) => {
+      try {
+        await submitLocalVisionFrame(frame);
+      } catch (error) {
+        localCameraUi.detectionStatus = error.message || "帧检测失败";
+        updateLocalCameraDom();
+      }
+    }
+  });
+  await localCameraController.start();
+  localCameraUi.detectionStatus = "摄像头已开启，mock 检测运行中";
+  localCameraUi.alertStatus = "未触发";
+  updateLocalCameraDom();
+  showPilotMessage("本机摄像头已开启；停止或离开页面会自动释放。", "success");
+}
+
 async function handleUiAction(action, target) {
   const messages = {
     search: ["全局搜索", "/api/search"],
@@ -971,7 +1168,6 @@ async function handleUiAction(action, target) {
     "health-advice": ["健康建议生成", "/api/health-advice"],
     "family-daily": ["家属日报发送", "/api/family/daily-reports"],
     "family-visit": ["视频探视预约", "/api/family/visits"],
-    "resident-create": ["新增老人档案", "/api/residents"],
     "resident-detail": ["老人档案详情", `/api/residents/${target.dataset.id || ":id"}`],
     "alert-filter": ["告警筛选", "/api/alerts?level=&status="],
     "device-filter": ["设备筛选", "/api/devices?status=offline"],
@@ -992,6 +1188,105 @@ async function handleUiAction(action, target) {
     await refreshPilotData();
     await rerenderCurrentRoute();
     showPilotMessage("数据已刷新。", "success");
+    return;
+  }
+  if (action === "resident-create") {
+    openResidentForm(null);
+    return;
+  }
+  if (action === "resident-edit") {
+    const resident = residents.find((item) => String(item.id) === String(target.dataset.id));
+    if (!resident) throw new Error("未找到需要编辑的老人档案。");
+    openResidentForm(resident);
+    return;
+  }
+  if (action === "resident-form-close") {
+    document.getElementById("residentEditForm")?.classList.add("hidden");
+    return;
+  }
+  if (action === "care-task-create") {
+    openCareTaskForm(null);
+    return;
+  }
+  if (action === "care-task-edit") {
+    const task = tasks.find((item) => String(item.id) === String(target.dataset.id));
+    if (!task) throw new Error("未找到需要编辑的护理任务。");
+    openCareTaskForm(task);
+    return;
+  }
+  if (action === "care-task-form-close") {
+    document.getElementById("careTaskForm")?.classList.add("hidden");
+    return;
+  }
+  if (action === "rehab-tab") {
+    appState.rehabTab = target.dataset.tab === "plans" ? "plans" : "tasks";
+    await loadRehabTabData();
+    renderDynamicPage(currentRoute());
+    return;
+  }
+  if (action === "rehab-task-create") {
+    openRehabTaskForm(null);
+    return;
+  }
+  if (action === "rehab-task-edit") {
+    const task = rehabTasks.find((item) => String(item.id) === String(target.dataset.id));
+    if (!task) throw new Error("未找到需要编辑的康复任务。");
+    openRehabTaskForm(task);
+    return;
+  }
+  if (action === "rehab-plan-create") {
+    openRehabPlanForm(null);
+    return;
+  }
+  if (action === "rehab-plan-edit") {
+    const plan = rehabPlans.find((item) => String(item.id) === String(target.dataset.id));
+    if (!plan) throw new Error("未找到需要编辑的康复计划。");
+    openRehabPlanForm(plan);
+    return;
+  }
+  if (action === "rehab-form-close") {
+    document.getElementById("rehabTaskForm")?.classList.add("hidden");
+    document.getElementById("rehabPlanForm")?.classList.add("hidden");
+    return;
+  }
+  if (action === "rehab-task-status") {
+    await apiRequest(`/rehab-tasks/${target.dataset.id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        status: target.dataset.status,
+        operatorName: appState.currentUser?.displayName || appState.currentUser?.email,
+        note: "管理端状态更新"
+      })
+    });
+    await loadRehabTabData();
+    renderDynamicPage(currentRoute());
+    showPilotMessage("康复任务状态已保存。", "success");
+    return;
+  }
+  if (action === "rehab-plan-status") {
+    await apiRequest(`/rehab-plans/${target.dataset.id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: target.dataset.status })
+    });
+    await loadRehabTabData();
+    renderDynamicPage(currentRoute());
+    showPilotMessage("康复计划状态已保存。", "success");
+    return;
+  }
+  if (action === "local-camera-start") {
+    await startLocalCamera();
+    return;
+  }
+  if (action === "local-camera-stop") {
+    stopLocalCamera();
+    showPilotMessage("本机摄像头与抽帧计时器已停止。", "success");
+    return;
+  }
+  if (action === "local-camera-mock") {
+    localCameraUi.detectionStatus = "正在提交 mock 风险事件";
+    updateLocalCameraDom();
+    const result = await submitLocalVisionFrame({ testEventType: target.dataset.testEventType });
+    showPilotMessage(result.automaticAlertTriggered ? "Mock 风险事件已生成并联动告警。" : "Mock 事件已保存，未达到自动告警阈值。", "success");
     return;
   }
   if (action === "camera-create") {
@@ -1073,6 +1368,114 @@ function bindPageActions() {
   });
 
   document.addEventListener("submit", async (event) => {
+    if (event.target.id === "residentEditForm") {
+      event.preventDefault();
+      const form = event.target;
+      const submit = form.querySelector('[type="submit"]');
+      if (submit) submit.disabled = true;
+      try {
+        const values = new FormData(form);
+        const id = values.get("id");
+        const payload = Object.fromEntries(values.entries());
+        delete payload.id;
+        if (Object.prototype.hasOwnProperty.call(payload, "age")) payload.age = Number(payload.age);
+        if (Object.prototype.hasOwnProperty.call(payload, "riskTags")) {
+          payload.riskTags = String(payload.riskTags || "").split(/[,，]/).map((item) => item.trim()).filter(Boolean);
+        }
+        await apiRequest(id ? `/residents/${id}` : "/residents", {
+          method: id ? "PATCH" : "POST",
+          body: JSON.stringify(payload)
+        });
+        form.classList.add("hidden");
+        await loadDashboardData();
+        await rerenderCurrentRoute();
+        showPilotMessage(id ? "老人档案已保存。" : "老人档案已新增。", "success");
+      } catch (error) {
+        showPilotMessage(error.message || "老人档案保存失败。", "error");
+      } finally {
+        if (submit) submit.disabled = false;
+      }
+      return;
+    }
+    if (event.target.id === "careTaskForm") {
+      event.preventDefault();
+      const form = event.target;
+      const submit = form.querySelector('[type="submit"]');
+      if (submit) submit.disabled = true;
+      try {
+        const values = new FormData(form);
+        const id = values.get("id");
+        const payload = Object.fromEntries(values.entries());
+        delete payload.id;
+        if (!payload.dueAt) delete payload.dueAt;
+        else payload.dueAt = new Date(payload.dueAt).toISOString();
+        if (id) delete payload.status;
+        await apiRequest(id ? `/care-tasks/${id}` : "/care-tasks", {
+          method: id ? "PATCH" : "POST",
+          body: JSON.stringify(payload)
+        });
+        form.classList.add("hidden");
+        await loadDashboardData();
+        await rerenderCurrentRoute();
+        showPilotMessage(id ? "护理任务已保存。" : "护理任务已新增。", "success");
+      } catch (error) {
+        showPilotMessage(error.message || "护理任务保存失败。", "error");
+      } finally {
+        if (submit) submit.disabled = false;
+      }
+      return;
+    }
+    if (event.target.id === "rehabTaskForm") {
+      event.preventDefault();
+      const form = event.target;
+      const submit = form.querySelector('[type="submit"]');
+      if (submit) submit.disabled = true;
+      try {
+        const values = new FormData(form);
+        const id = values.get("id");
+        const payload = Object.fromEntries(values.entries());
+        delete payload.id;
+        await apiRequest(id ? `/rehab-tasks/${id}` : "/rehab-tasks", {
+          method: id ? "PATCH" : "POST",
+          body: JSON.stringify(payload)
+        });
+        form.classList.add("hidden");
+        await loadRehabTabData();
+        renderDynamicPage(currentRoute());
+        showPilotMessage(id ? "康复任务已保存。" : "康复任务已新增。", "success");
+      } catch (error) {
+        showPilotMessage(error.message || "康复任务保存失败。", "error");
+      } finally {
+        if (submit) submit.disabled = false;
+      }
+      return;
+    }
+    if (event.target.id === "rehabPlanForm") {
+      event.preventDefault();
+      const form = event.target;
+      const submit = form.querySelector('[type="submit"]');
+      if (submit) submit.disabled = true;
+      try {
+        const values = new FormData(form);
+        const id = values.get("id");
+        const payload = Object.fromEntries(values.entries());
+        delete payload.id;
+        if (!payload.endDate) delete payload.endDate;
+        await apiRequest(id ? `/rehab-plans/${id}` : "/rehab-plans", {
+          method: id ? "PATCH" : "POST",
+          body: JSON.stringify(payload)
+        });
+        form.classList.add("hidden");
+        await loadRehabTabData();
+        renderDynamicPage(currentRoute());
+        showPilotMessage(id ? "康复计划已保存。" : "康复计划已新增。", "success");
+      } catch (error) {
+        showPilotMessage(error.message || "康复计划保存失败。", "error");
+      } finally {
+        if (submit) submit.disabled = false;
+      }
+      return;
+    }
     if (event.target.id !== "cameraConfigForm") return;
     event.preventDefault();
     if (!window.YianPermissions.canViewRtsp(appState.currentUser) || !window.YianApi.getToken()) {
@@ -1258,5 +1661,7 @@ async function bootApp() {
 window.addEventListener("error", (event) => {
   console.error("Protected runtime error", event.error || event.message);
 });
+
+window.addEventListener("beforeunload", () => stopLocalCamera("页面已关闭"));
 
 document.addEventListener("DOMContentLoaded", bootApp);

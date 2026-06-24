@@ -1,270 +1,82 @@
-# 系统架构文档
+# MVP 系统架构
 
 ## 业务边界
 
-系统分为五类核心业务边界：
+第一代试点包含老人档案、护理任务、康复任务/计划、设备与摄像头台账、AI 风险事件、告警处置和审计。家属仅查看绑定老人摘要，访客只进入脱敏演示。
 
-```text
-管理端：院长、护士长、运营人员查看看板、任务、告警和设备状态。
-老人档案：保存老人基础信息、房间床位、风险标签、照护等级。
-护理任务：记录任务派发、执行、超时、完成和复核。
-安全告警：接收人工或设备事件，生成告警，跟踪响应。
-设备与 AI：保存设备台账，后续接收设备事件和 AI 识别事件。
-```
-
-MVP 当前只实现管理端展示、认证、基础数据读取和数据库种子数据。设备与 AI 只保留台账和接口边界，不直接实现算法。
+不包含真实 RTSP 播放、模型训练、网上公共摄像头、医疗诊断、自动护理决策、短信/电话联动、多院区微服务或 Kubernetes。
 
 ## 技术选型
 
-### 前端
-
-当前使用 HTML + CSS + 原生 JavaScript。
-
-选择理由：
-
-- 项目当前是静态原型，迁移成本低。
-- MVP 阶段页面数量少，不需要立即引入 Vue/React。
-- 先验证业务闭环，避免过早增加前端工程复杂度。
-
-限制：
-
-- 当页面超过 5 个主要业务页面，或状态管理复杂后，再评估是否迁移到 Vue/React。
-- 迁移前必须写迁移说明，不允许直接重写。
-
-### 后端
-
-后端使用 NestJS + TypeORM。
-
-选择理由：
-
-- NestJS 有清晰模块、控制器、服务、依赖注入结构。
-- 适合从 MVP 演进到企业项目。
-- TypeORM 支持 MySQL/MariaDB/PostgreSQL，方便后续数据库迁移。
-- 参数校验、异常处理、中间件、守卫等能力成熟。
-
-### 数据库
-
-MVP 本机使用 MariaDB/MySQL，保留 PostgreSQL 兼容配置。
-
-选择理由：
-
-- MySQL/MariaDB 在中小型机构部署简单。
-- TypeORM 已支持 MySQL 和 PostgreSQL。
-- 试点阶段数据量不大，关系型数据库足够。
-
-生产原则：
-
-- 生产环境必须关闭 `DB_SYNC=true`，改用迁移脚本。
-- 密码、密钥、数据库地址必须来自环境变量。
-- 数据库必须做备份和恢复演练。
-
-### AI 和设备
-
-AI 视觉和设备接入不直接写进管理后台后端。后续应拆成边界清晰的服务：
-
 ```text
-ai-vision：负责视频流、模型推理、事件输出。
-device-gateway：负责 MQTT、Webhook、厂商 API、设备协议适配。
-api：负责业务规则、告警、任务、档案、权限和数据存储。
+管理端：HTML + CSS + 原生 JavaScript
+API：NestJS + TypeScript
+数据层：TypeORM + MariaDB/MySQL（保留 PostgreSQL 配置）
+认证：JWT + Nest Guard
+AI：Detector/Llm adapter，默认 Mock + Noop
 ```
 
-## 当前代码位置
+选择理由是沿用现有代码、保持本机部署简单，并通过模块和 adapter 留出升级接口。安全由后端身份、角色、老人范围、DTO、审计和秘密管理共同保证。
+
+## 目录
 
 ```text
 src/
-  index.html        前端页面入口
-  app.js            前端渲染、登录、API 调用
-  styles.css        前端样式
+  index.html                 页面入口
+  app.js                     启动与跨页面协调
+  api.js                     统一 HTTP 请求
+  local-camera.js            MediaStream 生命周期与抽帧
+  permissions.js             前端显示判断（不是安全边界）
+  config/ auth/ router/      RBAC、会话和 hash 路由
+  pages/                     档案、护理、康复、摄像头、AI、告警等页面
 
-backend/
-  src/main.ts       NestJS 启动入口
-  src/app.module.ts 后端总配置
-  src/auth/         登录认证模块
-  src/modules/      MVP 业务模块目录
-  src/modules/health/ 健康检查
-  src/modules/residents/ 老人档案
-  src/modules/care-tasks/ 护理任务
-  src/modules/alerts/ 告警中心
-  src/modules/cameras/ 摄像头台账
-  src/modules/devices/ 设备台账
-  src/modules/device-events/ 设备事件预留入口
-  src/modules/ai-events/ AI 事件预留入口
-  src/modules/dashboard/ 管理端看板聚合
-  src/seed/         初始化演示数据
-  scripts/          本机启动、停止、服务安装脚本
-```
-
-## 目标目录结构
-
-MVP 后续建议逐步整理为：
-
-```text
-frontend/
-  src/
-    pages/
-    components/
-    services/
-    styles/
-
-backend/
-  src/
-    main.ts
-    app.module.ts
-    config/
-    common/
-      filters/
-      interceptors/
-      logging/
-      response/
-    modules/
-      auth/
-      residents/
-      rooms/
-      care-tasks/
-      alerts/
-      devices/
-      cameras/
-      dashboard/
-      audit/
-    database/
-      migrations/
-      seeds/
-
-ai-service/
-  README.md
-
-device-gateway/
-  README.md
-
-docs/
-  mvp-scope.md
-  architecture.md
-  api-spec.md
-  error-and-logging.md
-  development-rules.md
+backend/src/
+  main.ts                    NestJS 入口、校验与统一响应
+  common/                    Guard、访问策略、错误和响应
+  modules/residents/         老人档案
+  modules/care-tasks/        护理任务
+  modules/rehab-tasks/       康复任务
+  modules/rehab-plans/       康复计划
+  modules/cameras/           合法自有摄像头台账
+  modules/vision/            帧校验、adapter、规则和联动
+  modules/ai-events/         AI 事件与人工复核
+  modules/alerts/            告警去重和处置
+  modules/audit/             审计日志
+  seed/                      脱敏演示种子
 ```
 
 ## 分层规则
 
-后端每个业务模块必须按以下分层：
+- Controller 只接收请求、调用服务和记录操作审计。
+- DTO 使用框架校验；Service 承担权限后的业务规则和状态机。
+- Entity/Repository 负责关系型数据；前端不作为权限可信源。
+- 环境变量由 `ConfigService` 读取，`.env`、密钥和内部 URL 不提交 Git。
+
+## 核心数据流
 
 ```text
-controller：只处理 HTTP 请求和响应。
-dto：只定义入参结构和参数校验。
-service：处理业务规则。
-entity：定义数据库表结构。
-repository：复杂查询或数据访问封装。
-module：组织当前业务模块依赖。
+用户主动开启本机摄像头
+-> video/canvas 定时抽取 JPEG（不缓存视频）
+-> POST /api/vision/frame
+-> DetectorAdapter（默认 Mock，可选 LocalYolo）
+-> ai_events
+-> 阈值与 60 秒去重规则
+-> alerts
+-> 人工确认 / 解决 / 误报
+-> AI 事件状态同步 + audit_logs
 ```
 
-不允许在 controller 中直接写复杂业务逻辑。  
-不允许在前端写死正式业务数据。  
-不允许让设备协议直接污染告警、任务、档案模块。
+Mock detector 不读取普通帧内容。只有请求显式提供 `testEventType` 才生成风险事件。`LocalYoloDetectorAdapter` 只调用配置的本机 HTTP 服务，超时或失败返回 `unavailable`；允许时回退 mock。LLM 默认 Noop，摘要为空不影响告警闭环。
 
-## 设备接入边界
+## 权限和隐私
 
-设备事件统一转换成标准事件后再进入业务系统。
+- 后端同时校验 JWT、角色和老人授权范围。
+- 护士只管理授权老人护理数据；康复师只管理授权老人康复数据；家属只读绑定摘要；访客业务 API 403。
+- RTSP 原始地址只允许超级管理员查看，其他授权人员看到脱敏地址。
+- 摄像头只允许公共区域；禁止卧室、卫生间等私密区域。
+- 日志和审计不记录帧、JWT、密码、RTSP 凭据、联系电话及护理/康复备注正文。
+- 生产关闭 `DB_SYNC`，使用迁移、备份、HTTPS、强 JWT 密钥和独立设备认证。
 
-标准设备事件示例：
+## 升级接口
 
-```json
-{
-  "eventType": "fall_detected",
-  "sourceType": "camera",
-  "deviceCode": "CAM-2F-03",
-  "residentCode": "RES-002",
-  "location": "2F公共区",
-  "level": "high",
-  "confidence": 0.96,
-  "occurredAt": "2026-06-14T10:20:00+08:00"
-}
-```
-
-业务系统只关心标准事件，不直接依赖某个设备厂商的原始字段。
-
-## AI 视频边界
-
-浏览器不直接播放裸 RTSP。推荐链路：
-
-```text
-RTSP 摄像头
-  -> 视频网关转 HLS/WebRTC
-  -> AI 推理服务识别行为
-  -> 标准 AI 事件
-  -> 后端告警中心
-```
-
-AI 服务输出事件，不直接操作老人档案和护理任务。是否生成告警，由后端规则决定。
-## Login and RBAC MVP Addendum
-
-This addendum defines the first MVP login and role permission framework.
-
-### Product Boundary
-
-The MVP login framework is used for trial demonstration, role-based page isolation, and future backend authentication integration. It does not replace backend permission checks in production.
-
-Production rule: frontend permission control only improves user experience. Backend APIs must still verify identity, role, permission, resident data scope, and visitor authorization.
-
-### Frontend Technology Choice
-
-Keep the current stack:
-
-```text
-HTML + CSS + vanilla JavaScript
-```
-
-Reasons:
-
-- The existing management web page already uses this stack.
-- The MVP only needs a lightweight login page, menu filtering, and route guard.
-- No heavy UI framework or animation dependency is required.
-- Future migration to Vue or React must be documented separately before implementation.
-
-### Auth and RBAC Directory Boundary
-
-The frontend MVP may add these folders under `src/`:
-
-```text
-src/config/       roles, permissions, menus, routes, mock demo accounts
-src/auth/         login, logout, session restore
-src/router/       lightweight hash route guard
-src/pages/        role dashboard metadata and fallback page data
-src/tests/        lightweight browser-independent checks for RBAC/session logic
-```
-
-### Role Model
-
-MVP roles:
-
-```text
-super_admin  full system administrator
-director     nursing home director
-nurse        nurse or care worker
-rehab        rehabilitation therapist
-family       family member
-visitor      authorized visitor or third party
-```
-
-### Permission Model
-
-The frontend must not scatter checks such as `role === "admin"` across pages. Permission judgment must be centralized in `src/config/rbac.js`.
-
-Required mappings:
-
-```text
-roles              role definitions
-permissions        permission point definitions
-rolePermissions    role to permission mapping
-routePermissions   route to permission mapping
-menuPermissions    menu to permission mapping
-```
-
-### Mock Account Rule
-
-Demo accounts are allowed only for local development and MVP demonstrations. They must be centralized in `src/config/mock-accounts.js`.
-
-Production rule: do not display account passwords on the login page in a real deployment.
-
-### Data Privacy Rule
-
-Family users can only see their bound resident summary in the frontend MVP. Third-party or visitor users can only see authorized demo data. The backend must enforce the same data scope before production rollout.
+未来可在不改变业务 API 的前提下替换 Detector adapter、增加真实视频网关和迁移数据库。任何真实视频保存、云 AI、LLM 供应商、HIS 或设备协议接入必须另行评审并更新本文件。

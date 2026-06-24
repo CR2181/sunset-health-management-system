@@ -18,14 +18,14 @@ export class AiEventsController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "nurse")
-  list() {
-    return this.aiEventsService.list();
+  @Roles("admin", "manager", "nurse", "super_admin", "director")
+  list(@AuthUser() actor: RequestUser) {
+    return this.aiEventsService.list(actor);
   }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "device_manager")
+  @Roles("admin", "manager", "device_manager", "super_admin", "director")
   async create(@Body() dto: CreateAiEventDto, @AuthUser() actor: RequestUser) {
     const event = await this.aiEventsService.create(dto);
     await this.auditService.record({
@@ -41,9 +41,9 @@ export class AiEventsController {
 
   @Patch(":id/review")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "nurse")
+  @Roles("admin", "manager", "nurse", "super_admin", "director")
   async review(@Param("id") id: string, @Body() dto: ReviewAiEventDto, @AuthUser() actor: RequestUser) {
-    const event = await this.aiEventsService.review(id, dto);
+    const event = await this.aiEventsService.review(id, dto, actor);
     await this.auditService.record({
       action: "ai_event.review",
       resourceType: "ai_event",

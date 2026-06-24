@@ -4,6 +4,7 @@ import { JwtAuthGuard } from "../../common/jwt-auth.guard";
 import { Roles } from "../../common/roles.decorator";
 import { RolesGuard } from "../../common/roles.guard";
 import { RequestUser } from "../../common/user-role";
+import { pickDefinedFields } from "../../common/defined-fields";
 import { AuditService } from "../audit/audit.service";
 import { ResidentsService } from "./residents.service";
 import { CreateResidentDto } from "./dto/create-resident.dto";
@@ -17,15 +18,16 @@ export class ResidentsController {
   ) {}
 
   @Get()
-  list() {
-    return this.residentsService.list();
+  @UseGuards(JwtAuthGuard)
+  list(@AuthUser() actor: RequestUser) {
+    return this.residentsService.list(actor);
   }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "nurse")
+  @Roles("admin", "manager", "super_admin", "director")
   async create(@Body() dto: CreateResidentDto, @AuthUser() actor: RequestUser) {
-    const resident = await this.residentsService.create(dto);
+    const resident = await this.residentsService.create(dto, actor);
     await this.auditService.record({
       action: "resident.create",
       resourceType: "resident",
@@ -38,16 +40,16 @@ export class ResidentsController {
 
   @Patch(":id")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "nurse")
+  @Roles("admin", "manager", "nurse", "caregiver", "super_admin", "director", "rehab")
   async update(@Param("id") id: string, @Body() dto: UpdateResidentDto, @AuthUser() actor: RequestUser) {
-    const resident = await this.residentsService.update(id, dto);
+    const resident = await this.residentsService.update(id, dto, actor);
     await this.auditService.record({
       action: "resident.update",
       resourceType: "resident",
       resourceId: id,
       actor,
       summary: `Resident updated: ${resident.name}`,
-      metadata: { fields: Object.keys(dto) }
+      metadata: { fields: Object.keys(pickDefinedFields(dto)) }
     });
     return resident;
   }
