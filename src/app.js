@@ -64,6 +64,14 @@ let aiEvents = [];
 let auditLogs = [];
 let rehabTasks = [];
 let rehabPlans = [];
+let localCameraController = null;
+let visionConfig = null;
+const localCameraUi = {
+  detectionStatus: "未启动",
+  latestEvent: "暂无",
+  alertStatus: "未触发",
+  detectorMode: "mock"
+};
 
 const modelStack = [
   { version: "YOLOv12", scene: "跌倒、越界、异常姿态", latency: "38ms", status: "主模型", score: 96 },
@@ -213,6 +221,7 @@ function getLegacyView(view) {
 }
 
 function showProtectedView(view) {
+  if (view !== "cameras") stopLocalCamera("已离开摄像头页面");
   showAppShell();
   const route = rbac?.getRouteByKey(view);
   const familyDashboard = route?.key === "dashboard" && appState.currentUser?.role === "family";
@@ -274,6 +283,7 @@ function getDynamicPageData() {
     rehabTasks,
     rehabPlans,
     rehabTab: appState.rehabTab,
+    localCameraUi,
     feedback,
     standards
   };
@@ -374,6 +384,11 @@ async function loadCameraData() {
   }
 }
 
+async function loadAlertsData() {
+  if (!window.YianApi?.getToken()) return;
+  alerts = await apiRequest("/alerts");
+}
+
 async function loadRehabTabData() {
   if (!window.YianApi?.getToken()) return;
   if (appState.rehabTab === "plans") rehabPlans = await apiRequest("/rehab-plans");
@@ -385,6 +400,7 @@ async function hydrateDynamicPage(route) {
   if (route?.key === "aiEvents") await loadPilotEvents();
   if (route?.key === "auditLogs") await loadAuditLogs();
   if (route?.key === "rehab") await loadRehabTabData();
+  if (route?.key === "alerts") await loadAlertsData();
   renderDynamicPage(route);
 }
 
@@ -581,6 +597,7 @@ function closeAuthModal() {
 }
 
 function applySession(user) {
+  if (!user) stopLocalCamera("已退出登录");
   appState.currentUser = user || null;
   appState.role = user?.role || "visitor";
   if (!user) {
@@ -1059,6 +1076,90 @@ function openRehabPlanForm(plan) {
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function updateLocalCameraDom() {
+  const values = {
+    localCameraDetectionStatus: localCameraUi.detectionStatus,
+    localCameraLatestEvent: localCameraUi.latestEvent,
+    localCameraAlertStatus: localCameraUi.alertStatus,
+    localCameraDetectorMode: localCameraUi.detectorMode
+  };
+  Object.entries(values).forEach(([id, value]) => {
+    const target = document.getElementById(id);
+    if (target) target.textContent = value;
+  });
+  document.querySelector(".local-camera-tool")?.classList.toggle("active", Boolean(localCameraController?.getState().active));
+}
+
+function stopLocalCamera(message = "已停止") {
+  localCameraController?.stop();
+  localCameraController = null;
+  localCameraUi.detectionStatus = message;
+  updateLocalCameraDom();
+}
+
+async function submitLocalVisionFrame({ imageDataUrl, capturedAt, testEventType } = {}) {
+  const location = document.getElementById("localCameraLocation")?.value.trim() || "公共测试区";
+  const residentCode = document.getElementById("localCameraResident")?.value || undefined;
+  const payload = {
+    sourceId: "local_webcam",
+    cameraCode: "LOCAL-WEBCAM",
+    location,
+    residentCode,
+    capturedAt: capturedAt || new Date().toISOString()
+  };
+  if (imageDataUrl) payload.imageDataUrl = imageDataUrl;
+  if (testEventType) {
+    payload.testEventType = testEventType;
+    payload.testConfidence = 0.92;
+  }
+  const result = await apiRequest("/vision/frame", { method: "POST", body: JSON.stringify(payload) });
+  localCameraUi.detectionStatus = result.detectorStatus === "unavailable" ? "AI 服务不可用" : "监测中";
+  if (result.events?.length) {
+    const event = result.events[0];
+    localCameraUi.latestEvent = `${event.eventType} · ${Math.round(Number(event.confidence || 0) * 100)}%`;
+    await loadPilotEvents();
+  } else {
+    localCameraUi.latestEvent = "本帧未发现 mock 风险";
+  }
+  if (result.alerts?.length) {
+    localCameraUi.alertStatus = result.alerts[0].action === "updated" ? "已更新现有告警" : "已自动生成告警";
+    await loadAlertsData();
+  }
+  updateLocalCameraDom();
+  return result;
+}
+
+async function startLocalCamera() {
+  if (localCameraController?.getState().active) {
+    showPilotMessage("本机摄像头已经开启。", "info");
+    return;
+  }
+  if (!window.YianLocalCamera?.isSupported()) throw new Error("当前环境不支持本机摄像头，请使用 localhost 或 HTTPS。 ");
+  visionConfig = await apiRequest("/vision/config");
+  localCameraUi.detectorMode = visionConfig.detectorMode || "mock";
+  const video = document.getElementById("localCameraPreview");
+  const canvas = document.getElementById("localCameraCanvas");
+  if (!video || !canvas) throw new Error("本机摄像头预览区域尚未准备好。");
+  localCameraController = window.YianLocalCamera.createController({
+    video,
+    canvas,
+    intervalMs: visionConfig.frameIntervalMs || 1000,
+    onFrame: async (frame) => {
+      try {
+        await submitLocalVisionFrame(frame);
+      } catch (error) {
+        localCameraUi.detectionStatus = error.message || "帧检测失败";
+        updateLocalCameraDom();
+      }
+    }
+  });
+  await localCameraController.start();
+  localCameraUi.detectionStatus = "摄像头已开启，mock 检测运行中";
+  localCameraUi.alertStatus = "未触发";
+  updateLocalCameraDom();
+  showPilotMessage("本机摄像头已开启；停止或离开页面会自动释放。", "success");
+}
+
 async function handleUiAction(action, target) {
   const messages = {
     search: ["全局搜索", "/api/search"],
@@ -1170,6 +1271,22 @@ async function handleUiAction(action, target) {
     await loadRehabTabData();
     renderDynamicPage(currentRoute());
     showPilotMessage("康复计划状态已保存。", "success");
+    return;
+  }
+  if (action === "local-camera-start") {
+    await startLocalCamera();
+    return;
+  }
+  if (action === "local-camera-stop") {
+    stopLocalCamera();
+    showPilotMessage("本机摄像头与抽帧计时器已停止。", "success");
+    return;
+  }
+  if (action === "local-camera-mock") {
+    localCameraUi.detectionStatus = "正在提交 mock 风险事件";
+    updateLocalCameraDom();
+    const result = await submitLocalVisionFrame({ testEventType: target.dataset.testEventType });
+    showPilotMessage(result.automaticAlertTriggered ? "Mock 风险事件已生成并联动告警。" : "Mock 事件已保存，未达到自动告警阈值。", "success");
     return;
   }
   if (action === "camera-create") {
@@ -1544,5 +1661,7 @@ async function bootApp() {
 window.addEventListener("error", (event) => {
   console.error("Protected runtime error", event.error || event.message);
 });
+
+window.addEventListener("beforeunload", () => stopLocalCamera("页面已关闭"));
 
 document.addEventListener("DOMContentLoaded", bootApp);
