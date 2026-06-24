@@ -1,59 +1,36 @@
-# 09-角色权限与审计日志规则
+# 09-角色权限与审计规则
 
-## 目标
-
-第一代 MVP 试点不做复杂权限平台，但必须做到：
-
-- 关键写操作需要登录。
-- 不同岗位有基本操作边界。
-- 告警、护理任务、老人档案、设备、AI复核等关键动作写入审计日志。
-
-## 当前角色
+## 产品角色
 
 ```text
-admin           系统管理员
-manager         院长/运营负责人
-nurse           护士长/医护负责人
-caregiver       护理员
-device_manager 设备管理员
-family          家属端预留
-user            普通用户/兜底角色
+super_admin  超级管理员，全院配置和业务数据
+director     院长，全院业务和运营数据
+nurse        护士/护理员，授权老人护理与安全处置
+rehab        康复师，授权老人康复任务和计划
+family       家属，绑定老人删减摘要，只读
+visitor      第三方/访客，仅脱敏演示
 ```
 
-## 当前权限边界
+后端旧种子角色兼容关系：`admin -> super_admin`、`manager -> director`、`caregiver -> rehab`、`user -> visitor`。权限必须由后端 Guard 和访问策略执行，前端隐藏按钮不是安全边界。
 
-```text
-老人档案新增/更新：admin, manager, nurse
-护理任务状态更新：admin, manager, nurse, caregiver
-告警确认/解决：admin, manager, nurse, caregiver
-告警误报标记：admin, manager, nurse
-设备心跳上报：admin, manager, device_manager
-设备事件上报：admin, manager, device_manager
-AI事件上报：admin, manager, device_manager
-AI事件人工复核：admin, manager, nurse
-审计日志查看：admin, manager
-```
+## 业务范围
 
-## 审计日志内容
+| 操作 | 超管/院长 | 护士 | 康复师 | 家属 | 访客 |
+|---|---|---|---|---|---|
+| 老人档案 | 全部新增编辑 | 授权老人护理摘要 | 授权老人康复摘要 | 绑定摘要只读 | 禁止 |
+| 护理任务 | 全部管理 | 授权老人管理 | 禁止 | 禁止 | 禁止 |
+| 康复任务/计划 | 全部管理 | 授权摘要只读 | 授权老人管理 | 绑定摘要只读 | 禁止 |
+| 摄像头 | 超管看原始配置，院长看脱敏台账 | 脱敏台账/本机测试 | 禁止 | 禁止 | 禁止 |
+| AI 事件/告警 | 全部复核处置 | 授权事件复核处置 | 禁止 | 禁止 | 禁止 |
+| 审计日志 | 可查看 | 禁止 | 禁止 | 禁止 | 禁止 |
 
-审计日志表：`audit_logs`
+## 必须审计
 
-记录字段：
+- 档案、护理任务、康复任务和康复计划的新增、编辑、状态变化。
+- 摄像头配置查看/新增/编辑/删除和设备心跳。
+- Vision 帧处理结果（只记录来源、事件数、告警数，不记录图片）。
+- AI 事件复核/转告警和告警确认/解决/误报。
 
-```text
-action          操作名称
-resourceType    资源类型
-resourceId      资源ID
-operatorId      操作人ID
-operatorEmail   操作人邮箱
-operatorRole    操作人角色
-summary         操作摘要
-metadata        额外上下文
-createdAt       操作时间
-```
+审计字段：`action`、`resourceType`、`resourceId`、操作者 ID/邮箱/角色、非敏感摘要、结构化 metadata、时间。
 
-## 后续升级
-
-- 家属端需要按老人授权过滤数据。
-- 设备和 AI 上报接口后续要改为设备密钥或签名机制。
-- 正式生产要补登录失败限制、接口限流、操作导出和审计查询筛选。
+审计与应用日志禁止记录 JWT、密码、RTSP 凭据、API 密钥、图片 data URL、联系电话、护理摘要、康复说明或告警处置备注正文。
