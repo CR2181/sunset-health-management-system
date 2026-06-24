@@ -40,7 +40,7 @@ export class AiEventsService {
     return this.aiEvents.save(event);
   }
 
-  createVisionEvent(frame: VisionFrameInput, detection: VisionDetection, level: string) {
+  createVisionEvent(frame: VisionFrameInput, detection: VisionDetection, level: string, llmSummary: string | null = null) {
     const event = this.aiEvents.create({
       businessCode: `AI-EVT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       eventType: detection.eventType,
@@ -55,6 +55,7 @@ export class AiEventsService {
       evidenceImagePath: frame.demoPath,
       evidenceUrl: frame.demoPath,
       confidence: detection.confidence,
+      llmSummary: llmSummary || undefined,
       status: "pending"
     });
     return this.aiEvents.save(event);

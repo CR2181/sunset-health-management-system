@@ -6,6 +6,9 @@ import { RequestUser } from "../../common/user-role";
 import { AiEventsService } from "../ai-events/ai-events.service";
 import { AlertsService } from "../alerts/alerts.service";
 import { DETECTOR_ADAPTER, DetectorAdapter } from "./adapters/detector.adapter";
+import { runDetectorWithFallback } from "./adapters/detector-fallback";
+import { LLM_ADAPTER, LlmAdapter } from "./adapters/llm.adapter";
+import { MockDetectorAdapter } from "./adapters/mock-detector.adapter";
 import { SubmitFrameDto } from "./dto/submit-frame.dto";
 import { evaluateAlertRule } from "./vision-alert-rules";
 import { VisionEventType, VisionFrameInput } from "./vision.types";
@@ -17,7 +20,9 @@ export class VisionService {
     private readonly accessPolicy: AccessPolicyService,
     private readonly aiEvents: AiEventsService,
     private readonly alerts: AlertsService,
-    @Inject(DETECTOR_ADAPTER) private readonly detector: DetectorAdapter
+    private readonly mockDetector: MockDetectorAdapter,
+    @Inject(DETECTOR_ADAPTER) private readonly detector: DetectorAdapter,
+    @Inject(LLM_ADAPTER) private readonly llm: LlmAdapter
   ) {}
 
   getPublicConfig() {
@@ -53,12 +58,19 @@ export class VisionService {
       testEventType: dto.testEventType,
       testConfidence: dto.testConfidence
     };
-    const result = await this.detector.detect(frame);
+    const detectionRun = await runDetectorWithFallback(
+      this.detector,
+      this.mockDetector,
+      frame,
+      this.readBoolean("AI_FALLBACK_TO_MOCK", true)
+    );
+    const result = detectionRun.result;
     const events = [];
     const alerts = [];
     for (const detection of result.detections) {
       const rule = evaluateAlertRule(detection.eventType, detection.confidence, this.thresholds());
-      const event = await this.aiEvents.createVisionEvent(frame, detection, rule?.level || "low");
+      const llmSummary = await this.llm.summarize({ eventType: detection.eventType, confidence: detection.confidence, location: frame.location });
+      const event = await this.aiEvents.createVisionEvent(frame, detection, rule?.level || "low", llmSummary);
       events.push(event);
       if (rule) {
         const alertResult = await this.alerts.upsertFromVision({
@@ -70,7 +82,8 @@ export class VisionService {
           location: frame.location,
           level: rule.level,
           occurredAt: frame.capturedAt,
-          evidenceImagePath: frame.demoPath
+          evidenceImagePath: frame.demoPath,
+          llmSummary: llmSummary || undefined
         }, this.readNumber("AI_ALERT_DEDUPE_SECONDS", 60, 1, 3600));
         await this.aiEvents.linkAlert(event.id, alertResult.alert.id);
         alerts.push({ id: alertResult.alert.id, action: alertResult.action });
@@ -78,7 +91,8 @@ export class VisionService {
     }
     return {
       detectorStatus: result.status,
-      detectorMode: this.detector.name,
+      detectorMode: detectionRun.detectorName,
+      fallbackUsed: detectionRun.fallbackUsed,
       riskDetected: events.length > 0,
       automaticAlertTriggered: alerts.length > 0,
       events,
@@ -124,5 +138,10 @@ export class VisionService {
   private readNumber(name: string, fallback: number, min: number, max: number) {
     const value = Number(this.config.get<string>(name, String(fallback)));
     return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+  }
+
+  private readBoolean(name: string, fallback: boolean) {
+    const value = this.config.get<string>(name);
+    return value === undefined ? fallback : value.toLowerCase() === "true";
   }
 }
