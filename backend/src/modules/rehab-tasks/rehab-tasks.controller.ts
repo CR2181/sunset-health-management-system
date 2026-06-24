@@ -4,6 +4,7 @@ import { JwtAuthGuard } from "../../common/jwt-auth.guard";
 import { Roles } from "../../common/roles.decorator";
 import { RolesGuard } from "../../common/roles.guard";
 import { RequestUser, UserRole } from "../../common/user-role";
+import { pickDefinedFields } from "../../common/defined-fields";
 import { AuditService } from "../audit/audit.service";
 import { CreateRehabTaskDto } from "./dto/create-rehab-task.dto";
 import { UpdateRehabTaskStatusDto } from "./dto/update-rehab-task-status.dto";
@@ -52,7 +53,7 @@ export class RehabTasksController {
       resourceId: id,
       actor,
       summary: "Rehab task updated.",
-      metadata: { fields: Object.keys(dto) }
+      metadata: { fields: Object.keys(pickDefinedFields(dto)) }
     });
     return task;
   }

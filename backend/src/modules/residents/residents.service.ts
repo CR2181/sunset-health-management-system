@@ -4,6 +4,7 @@ import { Repository } from "typeorm";
 import { canAccessResident, normalizeRole } from "../../common/access-policy";
 import { AccessPolicyService } from "../../common/access-policy.service";
 import { RequestUser } from "../../common/user-role";
+import { pickDefinedFields } from "../../common/defined-fields";
 import { Resident } from "./resident.entity";
 import { CreateResidentDto } from "./dto/create-resident.dto";
 import { UpdateResidentDto } from "./dto/update-resident.dto";
@@ -38,7 +39,7 @@ export class ResidentsService {
 
   async update(id: string, dto: UpdateResidentDto, actor: RequestUser) {
     const resident = await this.findById(id);
-    const updates = await this.accessPolicy.authorizeResidentUpdate(actor, resident.businessCode, { ...dto });
+    const updates = await this.accessPolicy.authorizeResidentUpdate(actor, resident.businessCode, pickDefinedFields(dto));
     Object.assign(resident, updates);
 
     return this.residents.save(resident);

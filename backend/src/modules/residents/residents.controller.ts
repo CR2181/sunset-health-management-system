@@ -4,6 +4,7 @@ import { JwtAuthGuard } from "../../common/jwt-auth.guard";
 import { Roles } from "../../common/roles.decorator";
 import { RolesGuard } from "../../common/roles.guard";
 import { RequestUser } from "../../common/user-role";
+import { pickDefinedFields } from "../../common/defined-fields";
 import { AuditService } from "../audit/audit.service";
 import { ResidentsService } from "./residents.service";
 import { CreateResidentDto } from "./dto/create-resident.dto";
@@ -48,7 +49,7 @@ export class ResidentsController {
       resourceId: id,
       actor,
       summary: `Resident updated: ${resident.name}`,
-      metadata: { fields: Object.keys(dto) }
+      metadata: { fields: Object.keys(pickDefinedFields(dto)) }
     });
     return resident;
   }

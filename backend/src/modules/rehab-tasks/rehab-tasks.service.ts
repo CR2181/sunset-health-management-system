@@ -8,6 +8,7 @@ import {
 } from "../../common/access-policy";
 import { AccessPolicyService } from "../../common/access-policy.service";
 import { RequestUser } from "../../common/user-role";
+import { pickDefinedFields } from "../../common/defined-fields";
 import { CreateRehabTaskDto } from "./dto/create-rehab-task.dto";
 import { UpdateRehabTaskStatusDto } from "./dto/update-rehab-task-status.dto";
 import { UpdateRehabTaskDto } from "./dto/update-rehab-task.dto";
@@ -46,7 +47,7 @@ export class RehabTasksService {
     if (dto.residentCode && dto.residentCode !== task.residentCode) {
       await this.accessPolicy.assertRehabManage(actor, dto.residentCode);
     }
-    Object.assign(task, dto);
+    Object.assign(task, pickDefinedFields(dto));
     return this.rehabTasks.save(task);
   }
 

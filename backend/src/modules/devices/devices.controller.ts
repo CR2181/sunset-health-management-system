@@ -17,14 +17,14 @@ export class DevicesController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "nurse", "device_manager")
+  @Roles("admin", "manager", "nurse", "device_manager", "super_admin", "director")
   list() {
     return this.devicesService.list();
   }
 
   @Patch(":id/heartbeat")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "manager", "device_manager")
+  @Roles("admin", "manager", "device_manager", "super_admin", "director")
   async heartbeat(@Param("id") id: string, @Body() dto: HeartbeatDeviceDto, @AuthUser() actor: RequestUser) {
     const device = await this.devicesService.heartbeat(id, dto);
     await this.auditService.record({

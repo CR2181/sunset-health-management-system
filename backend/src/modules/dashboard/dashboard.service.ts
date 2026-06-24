@@ -26,7 +26,8 @@ export class DashboardService {
   ) {}
 
   async getData(actor: RequestUser) {
-    const canReadCareTasks = ["super_admin", "director", "nurse"].includes(normalizeRole(actor.role));
+    const role = normalizeRole(actor.role);
+    const canReadCareTasks = ["super_admin", "director", "nurse"].includes(role);
     const [residents, integrations, tasks, alerts, rtspStreams, devices, feedback, standards] = await Promise.all([
       this.residentsService.list(actor),
       this.integrations.find({ order: { sortOrder: "ASC", createdAt: "ASC" } }),
@@ -38,9 +39,9 @@ export class DashboardService {
       this.standards.find({ order: { sortOrder: "ASC", createdAt: "ASC" } })
     ]);
 
-    if (actor.role === "family") {
+    if (role === "family") {
       return {
-        residents: residents.filter((resident) => resident.businessCode === "RES-001"),
+        residents,
         integrations: [],
         tasks: [],
         alerts: [],
@@ -49,6 +50,10 @@ export class DashboardService {
         feedback: feedback.filter((item) => item.businessCode === "FB-001"),
         standards: []
       };
+    }
+
+    if (role === "rehab") {
+      return { residents, integrations: [], tasks: [], alerts: [], rtspStreams: [], devices: [], feedback: [], standards: [] };
     }
 
     return {

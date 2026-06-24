@@ -4,6 +4,7 @@ import { Repository } from "typeorm";
 import { CameraStream } from "./camera-stream.entity";
 import { CreateCameraDto } from "./dto/create-camera.dto";
 import { UpdateCameraDto } from "./dto/update-camera.dto";
+import { pickDefinedFields } from "../../common/defined-fields";
 
 @Injectable()
 export class CamerasService {
@@ -31,7 +32,7 @@ export class CamerasService {
 
   async update(id: string, dto: UpdateCameraDto) {
     const camera = await this.findById(id);
-    Object.assign(camera, dto);
+    Object.assign(camera, pickDefinedFields(dto));
     return this.cameras.save(camera);
   }
 

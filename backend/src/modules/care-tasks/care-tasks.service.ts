@@ -4,6 +4,7 @@ import { Repository } from "typeorm";
 import { canReadCareTask, normalizeRole } from "../../common/access-policy";
 import { AccessPolicyService } from "../../common/access-policy.service";
 import { RequestUser } from "../../common/user-role";
+import { pickDefinedFields } from "../../common/defined-fields";
 import { CareTask } from "./care-task.entity";
 import {
   assertCareTaskTransition,
@@ -52,10 +53,9 @@ export class CareTasksService {
     if (dto.residentCode && dto.residentCode !== task.residentCode) {
       await this.accessPolicy.assertCareTaskManage(actor, dto.residentCode);
     }
-    Object.assign(task, {
-      ...dto,
-      dueAt: dto.dueAt ? new Date(dto.dueAt) : task.dueAt
-    });
+    const updates = pickDefinedFields(dto);
+    Object.assign(task, updates);
+    if (dto.dueAt !== undefined) task.dueAt = new Date(dto.dueAt);
     return this.careTasks.save(task);
   }
 

@@ -4,6 +4,7 @@ import { JwtAuthGuard } from "../../common/jwt-auth.guard";
 import { Roles } from "../../common/roles.decorator";
 import { RolesGuard } from "../../common/roles.guard";
 import { RequestUser, UserRole } from "../../common/user-role";
+import { pickDefinedFields } from "../../common/defined-fields";
 import { AuditService } from "../audit/audit.service";
 import { CareTasksService } from "./care-tasks.service";
 import { CreateCareTaskDto } from "./dto/create-care-task.dto";
@@ -52,7 +53,7 @@ export class CareTasksController {
       resourceId: id,
       actor,
       summary: "Care task updated.",
-      metadata: { fields: Object.keys(dto) }
+      metadata: { fields: Object.keys(pickDefinedFields(dto)) }
     });
     return task;
   }
