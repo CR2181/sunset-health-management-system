@@ -4,18 +4,22 @@ type Thresholds = Partial<Record<VisionEventType, number>>;
 
 const DEFAULT_THRESHOLDS: Record<VisionEventType, number> = {
   fall: 0.65,
+  possible_fall: 0.65,
   leaving_bed: 0.7,
   wandering: 0.75,
   boundary_crossing: 0.8,
-  stillness: 0.8
+  stillness: 0.8,
+  unknown: 1.1
 };
 
 const LEVELS: Record<VisionEventType, "medium" | "high"> = {
   fall: "high",
+  possible_fall: "high",
   leaving_bed: "medium",
   wandering: "medium",
   boundary_crossing: "high",
-  stillness: "medium"
+  stillness: "medium",
+  unknown: "medium"
 };
 
 export function evaluateAlertRule(eventType: string, confidence: number, thresholds: Thresholds = {}) {

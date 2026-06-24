@@ -1,4 +1,4 @@
-export type VisionEventType = "fall" | "leaving_bed" | "wandering" | "boundary_crossing" | "stillness";
+export type VisionEventType = "fall" | "possible_fall" | "leaving_bed" | "wandering" | "boundary_crossing" | "stillness" | "unknown";
 
 export interface VisionFrameInput {
   sourceId: string;

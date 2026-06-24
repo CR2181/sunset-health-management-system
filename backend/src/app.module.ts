@@ -18,6 +18,7 @@ import { ResidentsModule } from "./modules/residents/residents.module";
 import { RehabPlansModule } from "./modules/rehab-plans/rehab-plans.module";
 import { RehabTasksModule } from "./modules/rehab-tasks/rehab-tasks.module";
 import { SeedModule } from "./seed/seed.module";
+import { VisionModule } from "./modules/vision/vision.module";
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { SeedModule } from "./seed/seed.module";
     DevicesModule,
     DeviceEventsModule,
     AiEventsModule,
+    VisionModule,
     DashboardModule,
     SeedModule
   ]
