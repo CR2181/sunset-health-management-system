@@ -4,6 +4,11 @@ import { TypeOrmModuleOptions } from "@nestjs/typeorm";
 export function createDatabaseConfig(config: ConfigService): TypeOrmModuleOptions {
   const dbType = config.get<string>("DB_TYPE", "postgres");
   const type = dbType === "mysql" ? "mysql" : "postgres";
+  const synchronize = config.get<string>("DB_SYNC", "true") === "true";
+
+  if (config.get<string>("NODE_ENV", "development") === "production" && synchronize) {
+    throw new Error("DB_SYNC must be false in production. Use reviewed database migrations instead.");
+  }
 
   return {
     type,
@@ -13,6 +18,6 @@ export function createDatabaseConfig(config: ConfigService): TypeOrmModuleOption
     password: config.get<string>("DB_PASSWORD", ""),
     database: config.get<string>("DB_DATABASE", "sunset_health"),
     autoLoadEntities: true,
-    synchronize: config.get<string>("DB_SYNC", "true") === "true"
+    synchronize
   };
 }

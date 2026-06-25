@@ -70,6 +70,27 @@ test("camera page exposes explicit local camera and mock detection controls", ()
   assert.match(index, /local-camera\.js/);
 });
 
+test("camera configuration supports real create and update saves with feedback", () => {
+  assert.match(cameraPage, /id="cameraConfigForm"/);
+  assert.match(cameraPage, /name="id"/);
+  assert.match(cameraPage, /id="cameraFormTitle"/);
+  assert.match(app, /`\/cameras\/\$\{id\}`/);
+  assert.match(app, /method:\s*id\s*\?\s*"PATCH"\s*:\s*"POST"/);
+  assert.match(app, /loadCameraData\(\)/);
+  assert.match(app, /摄像头配置保存失败/);
+});
+
+test("camera page distinguishes loading, empty scope, demo, offline, and service errors", () => {
+  assert.match(app, /cameraDataState:\s*"demo"/);
+  assert.match(app, /cameraDataState = "loading"/);
+  assert.match(app, /cameraDataState = rtspStreams\.length \? "ready" : "empty"/);
+  assert.match(cameraPage, /未绑定可查看区域/);
+  assert.match(cameraPage, /设备离线/);
+  assert.match(cameraPage, /演示视频/);
+  assert.match(cameraPage, /视频服务异常/);
+  assert.doesNotMatch(cameraPage, /data\.cameras\?\.length \? data\.cameras : global\.YianDemoData\.cameras/);
+});
+
 test("alert center exposes AI evidence and complete handling actions", () => {
   assert.match(alertPage, /sourceType/);
   assert.match(alertPage, /confidence/);
@@ -84,4 +105,12 @@ test("resident save uses PATCH and refreshes backend data", () => {
   assert.match(app, /method:\s*"PATCH"/);
   assert.match(app, /`\/residents\/\$\{id\}`/);
   assert.match(app, /loadDashboardData\(\)/);
+});
+
+test("the UI identifies demo data and blocks local-only writes", () => {
+  assert.match(index, /id="dataSourceStatus"/);
+  assert.match(app, /dataSource:\s*"checking"/);
+  assert.match(app, /function requireBackendWrite/);
+  assert.match(app, /appState\.dataSource !== "backend"/);
+  assert.doesNotMatch(app, /event\.status\s*=\s*status/);
 });

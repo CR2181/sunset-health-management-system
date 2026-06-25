@@ -4,7 +4,11 @@ const appState = {
   authMode: "login",
   currentUser: null,
   router: null,
-  rehabTab: "tasks"
+  rehabTab: "tasks",
+  dataSource: "checking",
+  dataSourceMessage: "正在检查后端与数据库连接",
+  cameraDataState: "demo",
+  cameraDataMessage: "当前显示只读演示摄像头台账"
 };
 
 const AUTH_USERS_KEY = "yian-auth-users";
@@ -177,6 +181,12 @@ function setLoginPageMessage(message, tone = "") {
 function renderDemoAccounts() {
   const target = document.getElementById("demoAccountList");
   if (!target) return;
+  const localHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  if (!localHost && window.APP_SHOW_DEMO_ACCOUNTS !== true) {
+    target.closest(".demo-account-panel")?.classList.add("hidden");
+    target.innerHTML = "";
+    return;
+  }
   target.innerHTML = mockAccounts.map((account) => `
     <button class="demo-account-item" data-demo-email="${escapeHtml(account.email)}" type="button">
       <span>${escapeHtml(account.roleName)}</span>
@@ -284,6 +294,8 @@ function getDynamicPageData() {
     rehabPlans,
     rehabTab: appState.rehabTab,
     localCameraUi,
+    cameraDataState: appState.cameraDataState,
+    cameraDataMessage: appState.cameraDataMessage,
     feedback,
     standards
   };
@@ -336,8 +348,41 @@ async function apiRequest(path, options = {}) {
   return window.YianApi.request(path, options);
 }
 
+function renderDataSourceStatus() {
+  const target = document.getElementById("dataSourceStatus");
+  if (!target) return;
+  const icons = {
+    checking: "loader-circle",
+    backend: "database",
+    demo: "flask-conical",
+    error: "triangle-alert"
+  };
+  target.className = `data-source-status ${safeClass(appState.dataSource, "checking")}`;
+  target.innerHTML = `<i data-lucide="${icons[appState.dataSource] || icons.checking}"></i><span>${escapeHtml(appState.dataSourceMessage)}</span>`;
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function setDataSource(dataSource, message) {
+  appState.dataSource = dataSource;
+  appState.dataSourceMessage = message;
+  renderDataSourceStatus();
+}
+
+function markDataSourceFailure(error) {
+  const unavailable = error?.code === "API_UNAVAILABLE" || error?.status === 401;
+  setDataSource(
+    unavailable ? "demo" : "error",
+    unavailable
+      ? "只读演示数据：后端或数据库未连接，所有保存操作已禁用"
+      : `后端已响应但数据读取失败：${error?.message || "请查看运行日志"}`
+  );
+}
+
 async function loadDashboardData() {
-  if (!window.YianApi?.getToken()) return;
+  if (!window.YianApi?.getToken()) {
+    if (appState.currentUser) setDataSource("demo", "只读演示数据：未连接后端，所有保存操作已禁用");
+    return false;
+  }
   try {
     const data = await apiRequest("/dashboard/data");
     if (Array.isArray(data.residents)) residents = data.residents;
@@ -348,8 +393,12 @@ async function loadDashboardData() {
     if (Array.isArray(data.devices)) devices = data.devices;
     if (Array.isArray(data.feedback)) feedback = data.feedback;
     if (Array.isArray(data.standards)) standards = data.standards;
+    setDataSource("backend", "实时数据库：后端与数据库连接正常");
+    return true;
   } catch (error) {
-    console.warn("Backend API unavailable, using local demo data.", error);
+    console.error("Dashboard data load failed", { code: error.code, status: error.status });
+    markDataSourceFailure(error);
+    return false;
   }
 }
 
@@ -361,7 +410,8 @@ async function loadPilotEvents() {
   try {
     aiEvents = await apiRequest("/ai-events");
   } catch (error) {
-    console.warn("AI event list unavailable.", error);
+    console.error("AI event list load failed", { code: error.code, status: error.status });
+    markDataSourceFailure(error);
     aiEvents = window.YianDemoData?.aiEvents || [];
   }
 }
@@ -371,16 +421,34 @@ async function loadAuditLogs() {
   try {
     auditLogs = await apiRequest("/audit-logs");
   } catch (error) {
-    console.warn("Audit log list unavailable.", error);
+    console.error("Audit log list load failed", { code: error.code, status: error.status });
+    if (error.code === "API_UNAVAILABLE" || error.status === 401) markDataSourceFailure(error);
   }
 }
 
 async function loadCameraData() {
-  if (!window.YianPermissions?.canViewCameraLedger(appState.currentUser) || !window.YianApi?.getToken()) return;
+  if (!window.YianPermissions?.canViewCameraLedger(appState.currentUser)) return;
+  if (!window.YianApi?.getToken()) {
+    appState.cameraDataState = "demo";
+    appState.cameraDataMessage = "当前显示只读演示摄像头台账，未连接实时设备数据";
+    return;
+  }
+  appState.cameraDataState = "loading";
+  appState.cameraDataMessage = "正在读取摄像头台账";
+  if (currentRoute()?.key === "cameras") renderDynamicPage(currentRoute());
   try {
     rtspStreams = await apiRequest("/cameras");
+    appState.cameraDataState = rtspStreams.length ? "ready" : "empty";
+    appState.cameraDataMessage = rtspStreams.length
+      ? "摄像头台账已从实时数据库加载"
+      : "当前账号未绑定可查看区域，或授权区域内尚未配置摄像头";
   } catch (error) {
-    console.warn("Camera list unavailable.", error);
+    console.error("Camera list load failed", { code: error.code, status: error.status });
+    appState.cameraDataState = "error";
+    appState.cameraDataMessage = error.code === "API_UNAVAILABLE"
+      ? "摄像头台账加载失败：后端服务不可用"
+      : `摄像头台账加载失败：${error.message || "请查看后端日志"}`;
+    markDataSourceFailure(error);
   }
 }
 
@@ -603,6 +671,7 @@ function applySession(user) {
   if (!user) {
     localStorage.removeItem(AUTH_SESSION_KEY);
     localStorage.removeItem(AUTH_TOKEN_KEY);
+    setDataSource("checking", "未登录，后端数据连接尚未建立");
   }
   renderAuthorizedMenu();
   renderAuthStatus();
@@ -615,6 +684,7 @@ function applySession(user) {
 function applyAuthResult(result) {
   if (result?.accessToken) {
     localStorage.setItem(AUTH_TOKEN_KEY, result.accessToken);
+    setDataSource("backend", "已通过后端登录，正在读取实时数据库");
   }
   applySession(result?.user || null);
 }
@@ -850,7 +920,7 @@ async function refreshPilotData() {
 }
 
 async function handlePilotAction(action, id) {
-  if (!requireLoginForPilotAction()) return;
+  if (!requireBackendWrite()) return;
 
   const operatorName = appState.currentUser?.email || "试点操作员";
 
@@ -1076,6 +1146,28 @@ function openRehabPlanForm(plan) {
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function openCameraForm(camera) {
+  const form = document.getElementById("cameraConfigForm");
+  if (!form) return;
+  form.reset();
+  const setValue = (name, value) => {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = value ?? "";
+  };
+  ["id", "name", "floor", "area", "purpose", "accessType", "status", "note"].forEach((name) => {
+    setValue(name, camera?.[name]);
+  });
+  setValue("stream", window.YianPermissions.canViewRtsp(appState.currentUser) ? camera?.stream : "");
+  const aiEnabled = form.elements.namedItem("aiEnabled");
+  const maskedDisplay = form.elements.namedItem("maskedDisplay");
+  if (aiEnabled) aiEnabled.checked = camera?.aiEnabled === true;
+  if (maskedDisplay) maskedDisplay.checked = camera ? camera.maskedDisplay !== false : true;
+  const title = document.getElementById("cameraFormTitle");
+  if (title) title.textContent = camera ? "编辑摄像头配置" : "新增摄像头配置";
+  form.classList.remove("hidden");
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function updateLocalCameraDom() {
   const values = {
     localCameraDetectionStatus: localCameraUi.detectionStatus,
@@ -1174,6 +1266,8 @@ async function handleUiAction(action, target) {
     "audit-export": ["审计日志导出", "/api/audit-logs/export"],
     "ai-import-info": ["测试视频导入", "/api/ai-events/import-metadata"]
   };
+  const backendWriteActions = new Set(["rehab-task-status", "rehab-plan-status", "local-camera-start", "local-camera-mock"]);
+  if (backendWriteActions.has(action) && !requireBackendWrite()) return;
 
   if (action === "emergency-help") {
     showPilotMessage("紧急呼救当前为演示入口；真实部署需连接合法自有呼叫器和现场通知链路。", "warning");
@@ -1290,8 +1384,7 @@ async function handleUiAction(action, target) {
     return;
   }
   if (action === "camera-create") {
-    document.getElementById("cameraConfigForm")?.classList.remove("hidden");
-    document.getElementById("cameraConfigForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    openCameraForm(null);
     return;
   }
   if (action === "camera-form-close") {
@@ -1299,12 +1392,14 @@ async function handleUiAction(action, target) {
     return;
   }
   if (["camera-detail", "camera-edit"].includes(action)) {
-    if (!window.YianPermissions.canViewRtsp(appState.currentUser)) {
-      showPilotMessage("无权限查看原始 RTSP 配置。", "error");
+    if (!window.YianPermissions.canManageCameraConfig(appState.currentUser)) {
+      showPilotMessage("当前角色只能查看脱敏台账状态，无权查看原始 RTSP 或修改配置。", "info");
       return;
     }
-    document.getElementById("cameraConfigForm")?.classList.remove("hidden");
-    showPilotMessage(action === "camera-edit" ? "已打开摄像头配置表单。" : "管理员查看配置的行为已预留审计记录。", "info");
+    const camera = rtspStreams.find((item) => String(item.id) === String(target.dataset.id));
+    if (!camera) throw new Error("未找到需要查看的摄像头配置。");
+    openCameraForm(camera);
+    showPilotMessage(action === "camera-edit" ? "已打开摄像头配置表单；原始地址未授权时不会回显。" : "已打开摄像头配置；敏感地址按角色脱敏。", "info");
     return;
   }
   if (messages[action]) showConstructionMessage(...messages[action]);
@@ -1322,20 +1417,9 @@ async function handleAiReview(button) {
     return;
   }
 
+  if (!requireBackendWrite()) return;
   if (String(id).startsWith("demo-")) {
-    const event = aiEvents.find((item) => item.id === id) || window.YianDemoData.aiEvents.find((item) => item.id === id);
-    if (event) {
-      event.status = status === "converted_to_alert" ? "confirmed" : status;
-      event.reviewer = reviewer;
-      event.reviewedAt = new Date().toISOString();
-    }
-    showPilotMessage(status === "converted_to_alert" ? "演示事件已转为告警（本地演示状态）。" : "演示事件已完成复核。", "success");
-    await rerenderCurrentRoute();
-    return;
-  }
-
-  if (!window.YianApi.getToken()) {
-    showPilotMessage("当前为只读演示模式，连接后端并重新登录后可执行复核。", "error");
+    showPilotMessage("这是只读演示事件，不能写入或伪造复核结果。请连接后端后操作真实事件。", "error");
     return;
   }
 
@@ -1368,8 +1452,12 @@ function bindPageActions() {
   });
 
   document.addEventListener("submit", async (event) => {
-    if (event.target.id === "residentEditForm") {
+    const backendWriteForms = new Set(["residentEditForm", "careTaskForm", "rehabTaskForm", "rehabPlanForm", "cameraConfigForm"]);
+    if (backendWriteForms.has(event.target.id)) {
       event.preventDefault();
+      if (!requireBackendWrite()) return;
+    }
+    if (event.target.id === "residentEditForm") {
       const form = event.target;
       const submit = form.querySelector('[type="submit"]');
       if (submit) submit.disabled = true;
@@ -1398,7 +1486,6 @@ function bindPageActions() {
       return;
     }
     if (event.target.id === "careTaskForm") {
-      event.preventDefault();
       const form = event.target;
       const submit = form.querySelector('[type="submit"]');
       if (submit) submit.disabled = true;
@@ -1426,7 +1513,6 @@ function bindPageActions() {
       return;
     }
     if (event.target.id === "rehabTaskForm") {
-      event.preventDefault();
       const form = event.target;
       const submit = form.querySelector('[type="submit"]');
       if (submit) submit.disabled = true;
@@ -1451,7 +1537,6 @@ function bindPageActions() {
       return;
     }
     if (event.target.id === "rehabPlanForm") {
-      event.preventDefault();
       const form = event.target;
       const submit = form.querySelector('[type="submit"]');
       if (submit) submit.disabled = true;
@@ -1477,20 +1562,36 @@ function bindPageActions() {
       return;
     }
     if (event.target.id !== "cameraConfigForm") return;
-    event.preventDefault();
-    if (!window.YianPermissions.canViewRtsp(appState.currentUser) || !window.YianApi.getToken()) {
-      showPilotMessage("只有已连接后端的管理员可以保存摄像头配置。", "error");
+    if (!window.YianPermissions.canManageCameraConfig(appState.currentUser) || !window.YianApi.getToken()) {
+      showPilotMessage("只有已连接后端的管理员或设备管理员可以保存摄像头配置。", "error");
       return;
     }
-    const form = new FormData(event.target);
-    const payload = Object.fromEntries(form.entries());
-    payload.aiEnabled = form.has("aiEnabled");
-    payload.maskedDisplay = form.has("maskedDisplay");
-    await apiRequest("/cameras", { method: "POST", body: JSON.stringify(payload) });
-    event.target.reset();
-    event.target.classList.add("hidden");
-    await rerenderCurrentRoute();
-    showPilotMessage("摄像头配置已保存，并写入审计日志。", "success");
+    const cameraForm = event.target;
+    const submit = cameraForm.querySelector('[type="submit"]');
+    if (submit) submit.disabled = true;
+    try {
+      const form = new FormData(cameraForm);
+      const id = form.get("id");
+      const payload = Object.fromEntries(form.entries());
+      delete payload.id;
+      payload.aiEnabled = form.has("aiEnabled");
+      payload.maskedDisplay = form.has("maskedDisplay");
+      if (id && !payload.stream) delete payload.stream;
+      await apiRequest(id ? `/cameras/${id}` : "/cameras", {
+        method: id ? "PATCH" : "POST",
+        body: JSON.stringify(payload)
+      });
+      cameraForm.reset();
+      cameraForm.classList.add("hidden");
+      await loadCameraData();
+      renderDynamicPage(currentRoute());
+      showPilotMessage(id ? "摄像头配置已更新，并写入审计日志。" : "摄像头配置已新增，并写入审计日志。", "success");
+    } catch (error) {
+      console.error("Camera configuration save failed", error);
+      showPilotMessage(error.message || "摄像头配置保存失败。", "error");
+    } finally {
+      if (submit) submit.disabled = false;
+    }
   });
 }
 
@@ -1541,9 +1642,11 @@ async function handleLoginPageSubmit(event) {
       body: JSON.stringify({ email, password })
     });
     window.YianApi.setToken(backendSession.accessToken);
+    setDataSource("backend", "已通过后端登录，正在读取实时数据库");
     setLoginPageMessage("");
   } catch (error) {
     window.YianApi.setToken("");
+    markDataSourceFailure(error);
     setLoginPageMessage("后端暂不可用，已进入只读演示模式。", "warning");
   }
   applySession(result.user);
@@ -1600,6 +1703,15 @@ function requireLoginForPilotAction() {
   setLoginPageMessage("请先登录后再执行试点操作", "error");
   appState.router?.navigate("login");
   return false;
+}
+
+function requireBackendWrite() {
+  if (!requireLoginForPilotAction()) return false;
+  if (appState.dataSource !== "backend" || !window.YianApi?.getToken()) {
+    showPilotMessage("当前为只读演示模式，未连接实时数据库，不能保存或变更状态。", "error");
+    return false;
+  }
+  return true;
 }
 
 function bindRoleControls() {

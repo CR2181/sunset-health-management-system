@@ -56,6 +56,10 @@ export class DashboardService {
       return { residents, integrations: [], tasks: [], alerts: [], rtspStreams: [], devices: [], feedback: [], standards: [] };
     }
 
+    if (role === "device_manager") {
+      return { residents: [], integrations: [], tasks: [], alerts: [], rtspStreams, devices, feedback: [], standards: [] };
+    }
+
     return {
       residents,
       integrations,

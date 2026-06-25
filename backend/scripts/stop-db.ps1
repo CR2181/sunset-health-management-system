@@ -1,8 +1,10 @@
 $backendRoot = Split-Path -Parent $PSScriptRoot
-$data = Join-Path $backendRoot ".runtime\mariadb-data"
+$pidFile = Join-Path $backendRoot ".runtime\mariadb.pid"
 
-Get-CimInstance Win32_Process |
-  Where-Object { $_.Name -match "mariadbd|mysqld" -and $_.CommandLine -like "*$data*" } |
-  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+if (Test-Path $pidFile) {
+  $processId = [int](Get-Content $pidFile -Raw)
+  Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $pidFile -Force
+}
 
 Write-Host "MariaDB stopped."

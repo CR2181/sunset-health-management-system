@@ -11,8 +11,12 @@ const envExample = fs.readFileSync(path.join(root, "backend", ".env.example"), "
 
 assert.ok(!indexHtml.includes("admin@yian.local / admin123"), "legacy modal must not expose old demo credentials");
 assert.ok(!appJs.includes("data-demo-password"), "demo passwords should not be copied into data attributes");
+assert.ok(appJs.includes("APP_SHOW_DEMO_ACCOUNTS") && appJs.includes("window.location.hostname"), "demo account passwords must be hidden outside local development");
 assert.ok(mainTs.includes("CORS_ORIGINS"), "backend CORS origins must be configurable");
 assert.ok(!mainTs.includes("origin: true"), "backend must not allow every CORS origin by reflection");
+assert.ok(mainTs.includes('disable("x-powered-by")'), "backend must hide the Express fingerprint");
+assert.ok(mainTs.includes("Content-Security-Policy") && mainTs.includes("frame-ancestors 'none'"), "backend must set a restrictive CSP");
+assert.ok(mainTs.includes("Permissions-Policy"), "backend must explicitly scope browser device permissions");
 assert.ok(authModuleTs.includes("NODE_ENV") && authModuleTs.includes("JWT_SECRET"), "JWT secret must be environment-aware");
 assert.ok(envExample.includes("CORS_ORIGINS="), ".env.example must document CORS_ORIGINS");
 

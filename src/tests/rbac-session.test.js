@@ -33,7 +33,7 @@ function createMemoryStorage() {
   };
 }
 
-assert.equal(demoAccounts.length, 6, "six demo roles should be available");
+assert.equal(demoAccounts.length, 7, "seven demo roles should be available");
 assert.ok(demoAccounts.every((account) => account.productionVisible === false), "demo passwords must be marked non-production");
 
 const superAdmin = demoAccounts.find((account) => account.role === ROLE_KEYS.superAdmin);
@@ -101,6 +101,7 @@ assert.equal(routeAliases.visitor, "demo");
 const director = demoAccounts.find((account) => account.role === ROLE_KEYS.director);
 const nurse = demoAccounts.find((account) => account.role === ROLE_KEYS.nurse);
 const rehab = demoAccounts.find((account) => account.role === ROLE_KEYS.rehab);
+const deviceManager = demoAccounts.find((account) => account.role === ROLE_KEYS.deviceManager);
 
 assert.ok(canAccessRoute(director, "reports"));
 assert.ok(!canAccessRoute(director, "settings"));
@@ -114,6 +115,11 @@ assert.ok(!canAccessRoute(family, "auditLogs"));
 assert.ok(canAccessRoute(rehab, "rehab"));
 assert.ok(!canAccessRoute(rehab, "care-tasks"));
 assert.ok(!canAccessRoute(rehab, "settings"));
+assert.ok(canAccessRoute(deviceManager, "devices"));
+assert.ok(canAccessRoute(deviceManager, "cameras"));
+assert.ok(!canAccessRoute(deviceManager, "residents"));
+assert.ok(!canAccessRoute(deviceManager, "auditLogs"));
+assert.ok(hasPermission(deviceManager, PERMISSIONS.deviceManage));
 
 const storage = createMemoryStorage();
 const session = createAuthSessionManager({ storage, accounts: demoAccounts });

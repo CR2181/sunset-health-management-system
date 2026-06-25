@@ -7,11 +7,13 @@ import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { User } from "./user.entity";
+import { AuditLog } from "../modules/audit/audit-log.entity";
+import { AuthRateLimitGuard } from "./auth-rate-limit.guard";
 
 @Global()
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, AuditLog]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -32,7 +34,7 @@ import { User } from "./user.entity";
     })
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard],
+  providers: [AuthService, JwtAuthGuard, AuthRateLimitGuard],
   exports: [AuthService, TypeOrmModule, JwtModule]
 })
 export class AuthModule {}

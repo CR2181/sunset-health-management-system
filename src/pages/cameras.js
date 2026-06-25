@@ -1,15 +1,26 @@
 (function registerCamerasPage(global) {
   const escape = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
   const maskStream = (stream) => stream ? stream.replace(/:\/\/[^@/]+@/, "://***:***@") : "未配置";
+  const cameraState = (camera) => {
+    if (!camera.streamConfigured && !camera.stream) return { tone: "warning", message: "接入地址未配置，当前不能加载视频。" };
+    if (camera.status === "offline") return { tone: "error", message: "设备离线，请检查供电、网络和最近心跳。" };
+    if (camera.status === "demo") return { tone: "info", message: "演示视频，不是实时设备画面。" };
+    if (camera.status === "warning") return { tone: "warning", message: "视频服务异常或延迟过高，当前仅显示台账。" };
+    return { tone: "success", message: "设备在线；HLS/WebRTC 实时预览尚未接入，当前仅显示配置台账。" };
+  };
 
   global.YianPages.register("cameras", ({ data, user }) => {
     if (!global.YianPermissions.canViewCameraLedger(user) || global.YianPermissions.isFamily(user)) return global.YianNoPermissionPage.render({ title: "无权查看摄像头" });
     const canViewRtsp = global.YianPermissions.canViewRtsp(user);
-    const cameras = data.cameras?.length ? data.cameras : global.YianDemoData.cameras;
+    const canManageConfig = global.YianPermissions.canManageCameraConfig(user);
+    const cameras = Array.isArray(data.cameras) ? data.cameras : [];
+    const dataState = data.cameraDataState || "demo";
+    const dataMessage = data.cameraDataMessage || "当前显示只读演示摄像头台账";
     const cameraUi = data.localCameraUi || {};
     const residents = data.residents || [];
     return `
-      <div class="page-heading"><div><span class="badge info">合法自有设备</span><h2>摄像头管理</h2><p>RTSP/ONVIF/NVR 仅保存合法自有设备配置；本机摄像头只做用户主动开启的 mock 风险联动测试。</p></div>${canViewRtsp ? '<button class="primary-action" data-ui-action="camera-create" type="button"><i data-lucide="plus"></i><span>新增摄像头</span></button>' : ""}</div>
+      <div class="page-heading"><div><span class="badge info">合法自有设备</span><h2>摄像头管理</h2><p>RTSP/ONVIF/NVR 仅保存合法自有设备配置；本机摄像头只做用户主动开启的 mock 风险联动测试。</p></div>${canManageConfig ? '<button class="primary-action" data-ui-action="camera-create" type="button"><i data-lucide="plus"></i><span>新增摄像头</span></button>' : ""}</div>
+      <div class="camera-data-state ${escape(dataState)}"><i data-lucide="${dataState === "loading" ? "loader-circle" : dataState === "error" ? "triangle-alert" : dataState === "ready" ? "database" : "info"}"></i><span>${escape(dataMessage)}</span></div>
       <section class="local-camera-tool" aria-labelledby="localCameraTitle">
         <div class="local-camera-preview-wrap">
           <video id="localCameraPreview" muted playsinline aria-label="本机摄像头预览"></video>
@@ -41,15 +52,18 @@
         </div>
       </section>
       <div class="camera-security-note"><i data-lucide="shield-check"></i><span>原始 RTSP 地址仅管理员可见；普通角色只看到脱敏地址和预览占位。</span></div>
-      <div class="camera-ledger">${cameras.map((camera) => `
+      <div class="camera-ledger">${cameras.map((camera) => {
+        const state = cameraState(camera);
+        return `
         <article class="camera-config-card">
           <div class="camera-placeholder"><i data-lucide="camera"></i><span>${camera.maskedDisplay === false ? "配置预览" : "脱敏预览占位"}</span></div>
           <div class="camera-config-body"><div class="entity-card-head"><strong>${escape(camera.name)}</strong><span class="status-dot ${escape(camera.status)}">${escape(camera.status)}</span></div>
             <dl><dt>楼层/区域</dt><dd>${escape(camera.floor || "未设置")} / ${escape(camera.area || camera.location || "未设置")}</dd><dt>用途</dt><dd>${escape(camera.purpose || camera.behavior || "公共区域")}</dd><dt>接入类型</dt><dd>${escape(camera.accessType || "RTSP")}</dd><dt>AI分析</dt><dd>${camera.aiEnabled === false ? "未启用" : "已启用（仅预留）"}</dd><dt>脱敏显示</dt><dd>${camera.maskedDisplay === false ? "否" : "是"}</dd><dt>最近心跳</dt><dd>${escape(camera.lastHeartbeatAt || "暂无")}</dd><dt>接入地址</dt><dd class="mono-value">${escape(canViewRtsp ? camera.stream : maskStream(camera.stream))}</dd></dl>
-            <p>${escape(camera.note || "合法自有设备配置预留")}</p><div class="row-actions"><button class="ghost-button" data-ui-action="camera-detail" data-id="${escape(camera.id)}" type="button">查看配置</button>${canViewRtsp ? `<button class="ghost-button" data-ui-action="camera-edit" data-id="${escape(camera.id)}" type="button">编辑</button>` : ""}</div>
+            <p>${escape(camera.note || "合法自有设备配置预留")}</p><p class="camera-state-copy ${escape(state.tone)}">${escape(state.message)}</p><div class="row-actions"><button class="ghost-button" data-ui-action="camera-detail" data-id="${escape(camera.id)}" type="button">查看状态</button>${canManageConfig ? `<button class="ghost-button" data-ui-action="camera-edit" data-id="${escape(camera.id)}" type="button">编辑</button>` : ""}</div>
           </div>
-        </article>`).join("")}</div>
-      ${canViewRtsp ? `<form class="camera-form hidden" id="cameraConfigForm"><h3>摄像头配置预留</h3><div class="form-grid"><label>摄像头名称<input name="name" required /></label><label>所属楼层<input name="floor" required /></label><label>所属区域<input name="area" required /></label><label>摄像头用途<select name="purpose"><option>公共走廊</option><option>活动区</option><option>出入口</option><option>护理站</option><option>康复区</option><option>餐厅</option></select></label><label>接入类型<select name="accessType"><option>RTSP</option><option>ONVIF</option><option>NVR</option><option>Demo Video</option></select></label><label class="wide-field">RTSP / 本地演示地址<input name="stream" placeholder="rtsp://username:password@192.168.1.100:554/stream1" /></label><label class="check-field"><input type="checkbox" name="aiEnabled" />启用 AI 分析</label><label class="check-field"><input type="checkbox" name="maskedDisplay" checked />脱敏显示</label><label>在线状态<select name="status"><option>offline</option><option>online</option><option>demo</option></select></label><label class="wide-field">备注<textarea name="note"></textarea></label></div><div class="row-actions"><button class="primary-action" type="submit">保存配置</button><button class="ghost-button" data-ui-action="camera-form-close" type="button">取消</button></div></form>` : ""}
+        </article>`;
+      }).join("") || `<div class="empty-state">${dataState === "loading" ? "正在加载摄像头台账…" : "未绑定可查看区域，或授权区域内暂无摄像头。"}</div>`}</div>
+      ${canManageConfig ? `<form class="camera-form hidden" id="cameraConfigForm"><input name="id" type="hidden" /><h3 id="cameraFormTitle">新增摄像头配置</h3><div class="form-grid"><label>摄像头名称<input name="name" required /></label><label>所属楼层<input name="floor" required /></label><label>所属区域<input name="area" required /></label><label>摄像头用途<select name="purpose"><option>公共走廊</option><option>活动区</option><option>出入口</option><option>护理站</option><option>康复区</option><option>餐厅</option></select></label><label>接入类型<select name="accessType"><option>RTSP</option><option>ONVIF</option><option>NVR</option><option>Demo Video</option></select></label><label class="wide-field">RTSP / 本地演示地址<input name="stream" placeholder="编辑时留空可保持原地址不变" /></label><label class="check-field"><input type="checkbox" name="aiEnabled" />启用 AI 分析</label><label class="check-field"><input type="checkbox" name="maskedDisplay" checked />脱敏显示</label><label>在线状态<select name="status"><option>offline</option><option>online</option><option>demo</option></select></label><label class="wide-field">备注<textarea name="note"></textarea></label></div><div class="row-actions"><button class="primary-action" type="submit">保存配置</button><button class="ghost-button" data-ui-action="camera-form-close" type="button">取消</button></div></form>` : ""}
     `;
   });
 })(typeof globalThis !== "undefined" ? globalThis : window);

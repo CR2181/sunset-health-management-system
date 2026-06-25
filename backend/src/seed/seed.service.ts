@@ -1,4 +1,5 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcryptjs";
 import { DeepPartial, Repository } from "typeorm";
@@ -15,9 +16,15 @@ import { Resident } from "../modules/residents/resident.entity";
 import { RehabPlan } from "../modules/rehab-plans/rehab-plan.entity";
 import { RehabTask } from "../modules/rehab-tasks/rehab-task.entity";
 
+export function shouldSeedDemoData(nodeEnv: string, configured?: string): boolean {
+  if (configured !== undefined) return configured === "true";
+  return nodeEnv !== "production";
+}
+
 @Injectable()
 export class SeedService implements OnModuleInit {
   constructor(
+    private readonly config: ConfigService,
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(Resident) private readonly residents: Repository<Resident>,
     @InjectRepository(Integration) private readonly integrations: Repository<Integration>,
@@ -32,6 +39,11 @@ export class SeedService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    if (!shouldSeedDemoData(
+      this.config.get<string>("NODE_ENV", "development"),
+      this.config.get<string>("SEED_DEMO_DATA")
+    )) return;
+
     await this.seedUsers();
     await this.seedCollection(this.residents, [
       { businessCode: "RES-001", sortOrder: 1, name: "李桂英", age: 82, room: "4F-护理区 412", risk: "认知越界", detail: "MMSE 18 / 夜间离床 2 次 / AI徘徊预警 1 次" },
@@ -116,6 +128,7 @@ export class SeedService implements OnModuleInit {
       { email: "admin@yian.local", password: "admin123", role: "admin" },
       { email: "director@yian.local", password: "director123", role: "manager" },
       { email: "nurse@yian.local", password: "nurse123", role: "nurse", assignedResidentCodes: ["RES-001", "RES-002"] },
+      { email: "device@yian.local", password: "device123", role: "device_manager" },
       { email: "rehab@yian.local", password: "rehab123", role: "caregiver", assignedResidentCodes: ["RES-002"] },
       { email: "family@yian.local", password: "family123", role: "family", boundResidentCodes: ["RES-001"] },
       { email: "visitor@yian.local", password: "visitor123", role: "user" }

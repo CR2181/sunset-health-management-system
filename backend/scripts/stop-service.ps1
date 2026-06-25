@@ -1,8 +1,11 @@
 $backendRoot = Split-Path -Parent $PSScriptRoot
+$pidFile = Join-Path $backendRoot ".runtime\nest.pid"
 
-Get-CimInstance Win32_Process |
-  Where-Object { $_.Name -eq "node.exe" -and $_.CommandLine -like "*dist\main.js*" } |
-  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+if (Test-Path $pidFile) {
+  $processId = [int](Get-Content $pidFile -Raw)
+  Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $pidFile -Force
+}
 
 & (Join-Path $PSScriptRoot "stop-db.ps1")
 

@@ -11,6 +11,21 @@
     else global.localStorage?.removeItem(TOKEN_KEY);
   }
 
+  function userMessageFor(status, serverMessage) {
+    const suffix = serverMessage ? `：${serverMessage}` : "";
+    const messages = {
+      400: `提交内容不符合要求${suffix}`,
+      401: "登录状态已失效，请重新登录。",
+      403: "当前账号无权执行此操作。",
+      404: `请求的数据不存在${suffix}`,
+      409: `数据状态发生冲突${suffix}`,
+      422: `当前操作不符合业务规则${suffix}`,
+      429: "操作过于频繁，请稍后再试。",
+      500: "服务器处理失败，请稍后重试。"
+    };
+    return messages[status] || serverMessage || `请求失败（${status}）`;
+  }
+
   async function request(path, options = {}) {
     const headers = { ...(options.headers || {}) };
     const token = getToken();
@@ -22,22 +37,28 @@
     try {
       response = await fetch(`${API_BASE}/api${path}`, { ...options, headers });
     } catch (error) {
-      const unavailable = new Error("后端服务暂不可用，当前显示演示数据。");
+      console.error("API request unavailable", { path, method: options.method || "GET", code: "API_UNAVAILABLE" });
+      const unavailable = new Error("无法连接后端服务，请检查后端服务是否启动和网络连接。");
       unavailable.code = "API_UNAVAILABLE";
       unavailable.cause = error;
       throw unavailable;
     }
 
     if (!response.ok) {
-      let message = `请求失败（${response.status}）`;
+      let serverMessage = "";
+      let code = "HTTP_ERROR";
       try {
         const body = await response.json();
-        message = Array.isArray(body.message) ? body.message.join("；") : body.message || message;
+        serverMessage = Array.isArray(body.message) ? body.message.join("；") : body.message || "";
+        code = body.code || code;
       } catch {
         // Keep the HTTP status message when the body is not JSON.
       }
-      const requestError = new Error(message);
+      if (response.status === 401) setToken("");
+      console.error("API request failed", { path, method: options.method || "GET", status: response.status, code });
+      const requestError = new Error(userMessageFor(response.status, serverMessage));
       requestError.status = response.status;
+      requestError.code = code;
       throw requestError;
     }
 

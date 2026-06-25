@@ -41,6 +41,10 @@
     return isAdmin(user);
   }
 
+  function canManageCameraConfig(user) {
+    return isAdmin(user) || roleOf(user) === "device_manager";
+  }
+
   function canReviewAiEvent(user) {
     return ["admin", "super_admin", "manager", "director", "nurse"].includes(roleOf(user));
   }
@@ -64,6 +68,7 @@
     canManageRehab,
     canViewCameraLedger,
     canViewRtsp,
+    canManageCameraConfig,
     canReviewAiEvent,
     canViewAuditLogs
   };

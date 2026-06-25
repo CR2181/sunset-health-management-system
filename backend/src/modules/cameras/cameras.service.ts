@@ -16,7 +16,11 @@ export class CamerasService {
 
   async listSanitized() {
     const cameras = await this.list();
-    return cameras.map((camera) => ({ ...camera, stream: this.maskStream(camera.stream) }));
+    return cameras.map((camera) => ({
+      ...camera,
+      stream: this.redactStream(camera.stream),
+      streamConfigured: Boolean(camera.stream)
+    }));
   }
 
   create(dto: CreateCameraDto) {
@@ -48,7 +52,9 @@ export class CamerasService {
     return camera;
   }
 
-  private maskStream(stream: string) {
-    return stream ? stream.replace(/:\/\/[^@/]+@/, "://***:***@") : "";
+  private redactStream(stream: string) {
+    if (!stream) return "";
+    const protocol = stream.match(/^([a-z][a-z0-9+.-]*):\/\//i)?.[1]?.toLowerCase();
+    return protocol ? `${protocol}://***` : "configured://***";
   }
 }

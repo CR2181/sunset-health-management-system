@@ -3,6 +3,7 @@
     superAdmin: "super_admin",
     director: "director",
     nurse: "nurse",
+    deviceManager: "device_manager",
     rehab: "rehab",
     family: "family",
     visitor: "visitor"
@@ -37,6 +38,7 @@
     [ROLE_KEYS.superAdmin]: { name: "超级管理员", landingView: "dashboard" },
     [ROLE_KEYS.director]: { name: "院长", landingView: "dashboard" },
     [ROLE_KEYS.nurse]: { name: "护士/护理员", landingView: "care-tasks" },
+    [ROLE_KEYS.deviceManager]: { name: "设备管理员", landingView: "devices" },
     [ROLE_KEYS.rehab]: { name: "康复师", landingView: "rehab" },
     [ROLE_KEYS.family]: { name: "家属", landingView: "family" },
     [ROLE_KEYS.visitor]: { name: "第三方/访客", landingView: "demo" }
@@ -67,6 +69,12 @@
       PERMISSIONS.cameraView,
       PERMISSIONS.aiEventReview,
       PERMISSIONS.safetyView
+    ],
+    [ROLE_KEYS.deviceManager]: [
+      PERMISSIONS.dashboardView,
+      PERMISSIONS.cameraView,
+      PERMISSIONS.deviceView,
+      PERMISSIONS.deviceManage
     ],
     [ROLE_KEYS.rehab]: [
       PERMISSIONS.dashboardView,

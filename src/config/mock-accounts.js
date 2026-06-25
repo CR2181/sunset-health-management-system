@@ -3,6 +3,7 @@
     superAdmin: "super_admin",
     director: "director",
     nurse: "nurse",
+    deviceManager: "device_manager",
     rehab: "rehab",
     family: "family",
     visitor: "visitor"
@@ -33,6 +34,14 @@
       password: "nurse123",
       displayName: "护理员王敏",
       assignedResidentCodes: ["RES-001", "RES-002"],
+      productionVisible: false
+    },
+    {
+      role: ROLE_KEYS.deviceManager,
+      roleName: "设备管理员",
+      email: "device@yian.local",
+      password: "device123",
+      displayName: "设备管理员周工",
       productionVisible: false
     },
     {
